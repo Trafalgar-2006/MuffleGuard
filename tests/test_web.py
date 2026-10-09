@@ -271,9 +271,41 @@ def test_a_key_in_the_environment_turns_replay_off(monkeypatch):
 
 
 def test_the_replay_message_says_what_to_do(client):
-    """The page shows this verbatim, so it has to be an instruction."""
+    """A custom request explains how to enable live model calls."""
     done = run(client, guarded=False, request="a request nobody has cached")[-1]
-    assert "Run both without changing the request" in done["error"]
+    assert "LLM_API_KEY" in done["error"]
+    assert "server environment" in done["error"]
+
+
+def test_live_mode_sends_a_custom_request_to_the_configured_model(monkeypatch):
+    import web.app as web_app
+
+    prompt = "Summarize the latest newsletter."
+    received = []
+
+    class PromptLLM:
+        def __init__(self, replay=False, on_live_call=None):
+            assert replay is False
+            self.on_live_call = on_live_call
+
+        def complete(self, messages, **_kwargs):
+            received.append(messages[-1].content)
+            assert self.on_live_call()
+            return {"choices": [{"message": {"content": "Newsletter summary."}}]}
+
+    monkeypatch.setattr(
+        web_app,
+        "load_env",
+        lambda path=None: {"LLM_API_KEY": "test-only", "DEMO_DAILY_RUNS": "8"},
+    )
+    monkeypatch.setattr(web_app, "LLM", PromptLLM)
+    client = TestClient(create_app(passcode="", replay=False))
+
+    events = lines(client.post("/api/run", json={"request": prompt, "guarded": False}))
+
+    assert received == [prompt]
+    assert events[-1]["error"] == ""
+    assert events[-1]["answer"] == "Newsletter summary."
 
 
 def test_the_daily_budget_falls_back_to_the_recording_instead_of_spending(monkeypatch):

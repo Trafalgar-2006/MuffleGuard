@@ -67,6 +67,22 @@ The built-in request uses a fixed synthetic response replay, so the comparison
 works offline. Custom requests use the configured provider when a key and daily
 call allowance are available.
 
+### Enable custom prompts on the deployed Attack Lab
+
+The public demo starts in recorded replay mode until its server has a provider
+key. In Railway, open the service's **Variables** settings and add `LLM_API_KEY`
+as a secret. The default provider is OpenRouter; to use another OpenAI-compatible
+provider, also set `LLM_BASE_URL` and `LLM_MODEL`. Keep `DEMO_DAILY_RUNS` unset
+for its default allowance of 200 calls, or set it to at least `16` so both sides
+of a comparison can each use their eight-call ceiling. Redeploy after changing
+variables. The page should then show **Live model available**, and custom
+requests will be sent to that model.
+
+Never put a provider key in the browser, this repository, or a committed
+`.env` file. Prompts go to the configured model provider, while the inbox, file,
+and outbound tools remain a simulated in-memory world; this demo cannot inspect
+or delete real files.
+
 Sentence classifiers are off by default. Pass `--detector` after placing both
 ONNX model snapshots in the local Hugging Face cache; MuffleGuard does not
 download weights automatically. See [REVIEW.md](REVIEW.md) for setup. BPE

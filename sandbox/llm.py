@@ -152,9 +152,9 @@ class LLM:
 
         if self.replay:
             raise LLMError(
-                "This demo has no model key, so it can only replay the request it "
-                "ships with. Press Run both without changing the request, or run it "
-                "locally with your own key to try others."
+                "This deployment is in recorded replay mode; only the bundled request "
+                "has a fixture. To run custom prompts, set LLM_API_KEY in the server "
+                "environment and make sure the daily call budget is available."
             )
 
         api_key = self.env.get("LLM_API_KEY")

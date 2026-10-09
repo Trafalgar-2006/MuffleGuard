@@ -388,8 +388,8 @@ async function main() {
   const note = $("request-note");
   note.hidden = false;
   note.textContent = config.replay_only
-    ? "This demo replays a recorded run, so only this request works here. Run it locally with a model key to try your own."
-    : "The supplied request uses a recorded demo; custom requests use the configured live model.";
+    ? "Recorded replay: only the bundled request has a fixture. To run custom prompts, configure LLM_API_KEY and an available daily call budget on the server, then redeploy. Never paste a key here."
+    : "Custom prompts use the configured live model; the bundled request uses a recorded demo.";
   $("model-note").textContent = `Agent model: ${config.model}`;
   $("tamper").hidden = !config.tamper_enabled;
 
