@@ -25,11 +25,8 @@ FIXTURES = {
     "sandbox/world.py",  # the private file the demo agent is tricked into sending
     "tests/test_secrets.py",  # the detector's own test vectors
     "tests/test_redteam.py",  # red-team payloads
-    "tests/test_policy.py",
     "tests/test_attacks.py",
     "tests/test_web.py",
-    "evaluation/suite.py",
-    "MuffleGuard_SECURITY_REVIEW.md",
 }
 
 # Kinds that say "a person's identity" rather than "a credential". The sandbox
@@ -51,9 +48,15 @@ def main() -> int:
             continue
         path = ROOT / name
         try:
-            text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue  # binary or unreadable: nothing for a text scanner to do
+            raw = path.read_bytes()
+        except OSError:
+            continue
+        # A file Notepad saved as "Unicode" is UTF-16, and decoding it strictly
+        # as UTF-8 used to skip it silently: a real key in such a file passed
+        # the gate. Decode what we can instead of giving up on the file.
+        text = raw.decode("utf-8", errors="ignore")
+        if raw[:64].count(0) > 2:
+            text += raw.decode("utf-16", errors="ignore")
         for finding in scan(text):
             if finding.kind in IGNORED_KINDS:
                 continue

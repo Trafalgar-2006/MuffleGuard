@@ -17,7 +17,7 @@ from muffleguard.guard import Guard  # noqa: E402
 from sandbox.agent import run_agent  # noqa: E402
 from sandbox import llm as llm_module  # noqa: E402
 from sandbox.llm import LLM  # noqa: E402
-from sandbox.tools import SPECS  # noqa: E402
+from sandbox.tools import DESCRIPTIONS, SPECS  # noqa: E402
 from sandbox.world import DEMO_REQUEST, World  # noqa: E402
 
 # Every combination the demo and the tests actually replay.
@@ -37,7 +37,7 @@ def main() -> int:
         guard = (
             None
             if muffle is None
-            else Guard(tools=SPECS, detector=detector, muffle=muffle)
+            else Guard(tools=SPECS, detector=detector, muffle=muffle, descriptions=DESCRIPTIONS)
         )
         result = run_agent(DEMO_REQUEST, world=World(), guard=guard, llm=LLM())
         status = "error: " + result.error if result.error else (

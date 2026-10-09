@@ -198,3 +198,12 @@ def test_the_adversary_is_stopped_by_the_policy_when_it_does_act():
 
     assert not result.breached
     assert result.blocked_calls, "with nothing muffled it should try, and be refused"
+
+
+def test_the_runner_builds_guards_that_pin_descriptions():
+    """Whatever the suite measures must be the guard the demo ships."""
+    import inspect
+
+    from evaluation import redteam
+
+    assert "descriptions=DESCRIPTIONS" in inspect.getsource(redteam._one_run)

@@ -21,7 +21,7 @@ from typing import Callable
 from muffleguard.guard import Guard
 from sandbox.agent import run_agent
 from sandbox.llm import LLM
-from sandbox.tools import SPECS
+from sandbox.tools import DESCRIPTIONS, SPECS
 from sandbox.world import ATTACKER, benign_world
 
 from .stats import Rate
@@ -134,7 +134,7 @@ def _one_run(
     # all; the demo world ships three.
     world = attack.plant() if attack else benign_world()
     guard = (
-        Guard(tools=SPECS, detector=_detector(condition), muffle=condition.muffle)
+        Guard(tools=SPECS, detector=_detector(condition), muffle=condition.muffle, descriptions=DESCRIPTIONS)
         if condition.guard
         else None
     )

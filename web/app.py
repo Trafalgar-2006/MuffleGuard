@@ -31,7 +31,7 @@ from muffleguard.audit import AuditLog
 from muffleguard.guard import Guard
 from sandbox.agent import Step, run_agent
 from sandbox.llm import LLM, LLMError, load_env
-from sandbox.tools import SPECS
+from sandbox.tools import DESCRIPTIONS, SPECS
 from sandbox.world import DEMO_REQUEST, World
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -475,7 +475,7 @@ def _stream(
     steps: queue.Queue = queue.Queue()
     world = World()
     guard = (
-        Guard(tools=SPECS, detector=_detector(body.detector), muffle=body.muffle)
+        Guard(tools=SPECS, detector=_detector(body.detector), muffle=body.muffle, descriptions=DESCRIPTIONS)
         if body.guarded
         else None
     )

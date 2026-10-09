@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from muffleguard.guard import Guard  # noqa: E402
 from sandbox.agent import run_agent  # noqa: E402
 from sandbox.llm import LLM, load_env  # noqa: E402
-from sandbox.tools import SPECS  # noqa: E402
+from sandbox.tools import DESCRIPTIONS, SPECS  # noqa: E402
 from sandbox.world import DEMO_REQUEST as REQUEST  # noqa: E402
 from sandbox.world import World  # noqa: E402
 
@@ -93,7 +93,7 @@ def main() -> int:
     )
     show(undefended, "1. No guard")
 
-    with Guard(tools=SPECS, detector=detector, muffle=not args.no_muffle) as guard:
+    with Guard(tools=SPECS, detector=detector, muffle=not args.no_muffle, descriptions=DESCRIPTIONS) as guard:
         defended = run_agent(
             REQUEST, world=World(), guard=guard, llm=LLM(model, env, not args.no_cache)
         )

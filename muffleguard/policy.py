@@ -144,31 +144,46 @@ class PolicyEngine:
         # agent reads. Empty until something pins it, so this costs nothing
         # when nobody is using it.
         self._pinned: dict[str, str] = {}
-        self._current: dict[str, str] = {}
+        self._live: dict[str, str] | None = None
 
     def pin_descriptions(self, descriptions: dict[str, str]) -> None:
-        """Record the descriptions the agent was started with."""
+        """Snapshot what the tools claim, and keep watching the source.
+
+        The reference is held, not just the copy. The realistic in-process
+        attack is a dependency or an MCP client mutating the live mapping after
+        startup, and comparing a copy against itself would never see that.
+        """
+        self._live = descriptions
         self._pinned = dict(descriptions)
-        self._current = dict(descriptions)
 
     def describe_now(self, descriptions: dict[str, str]) -> None:
-        """Tell the engine what the tools are claiming at this moment."""
-        self._current = dict(descriptions)
+        """Replace the live source, for tests and for a client that re-fetches."""
+        self._live = descriptions
 
     def _description_changed(self, name: str) -> list[Reason]:
-        pinned = self._pinned.get(name)
-        if pinned is None:
+        """Check every pinned description, not only the one being called.
+
+        A poisoned description on a reading tool is how the model gets steered
+        into acting through an untouched one, so a change anywhere stops the
+        run rather than only a change to the tool in hand.
+        """
+        if self._live is None or not self._pinned:
             return []
-        now = self._current.get(name, "")
-        if now == pinned:
+        now = dict(self._live)
+        changed = sorted(
+            tool for tool, text in self._pinned.items() if now.get(tool, "") != text
+        )
+        changed += sorted(set(now) - set(self._pinned))
+        if not changed:
             return []
+        named = ", ".join(changed)
         return [
             Reason(
                 "R7-TOOL-CHANGED",
                 Decision.BLOCK,
-                f"The description of {name} has changed since the agent started, "
-                "so it is not the tool that was approved.",
-                {"tool": name, "was": pinned[:200], "now": now[:200]},
+                f"The description of {named} has changed since the agent started, "
+                f"so {name} is not running against the tools that were approved.",
+                {"tool": name, "changed": changed},
             )
         ]
 
