@@ -200,24 +200,24 @@ textarea:focus, input[type="password"]:focus { outline: 2px solid var(--hot); ou
 .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
 
 .toggle-track {
-  width: 44px;
-  height: 22px;
-  border: 2px solid var(--line);
+  width: 52px;
+  height: 24px;
+  border: 2px solid var(--faint);
   background: transparent;
   position: relative;
   flex: 0 0 auto;
-  transition: background .2s ease;
+  transition: background .2s ease, border-color .2s ease;
 }
 .toggle-track::after {
   content: "";
   position: absolute;
-  inset: 2px auto 2px 2px;
+  inset: 3px auto 3px 3px;
   width: 14px;
-  background: var(--line);
+  background: var(--muted);
   transition: transform .2s cubic-bezier(.2, .9, .2, 1), background .2s ease;
 }
 .toggle input:checked + .toggle-track { background: var(--hot); border-color: var(--hot); }
-.toggle input:checked + .toggle-track::after { transform: translateX(18px); background: #fff; }
+.toggle input:checked + .toggle-track::after { transform: translateX(24px); background: #fff; }
 .toggle input:focus-visible + .toggle-track { outline: 2px solid var(--hot); outline-offset: 2px; }
 
 button {
@@ -351,8 +351,36 @@ section.comparison, section.score, section.audit { padding-top: 64px; }
   min-height: 20px;
   background: var(--panel);
 }
-.outcome.breached { color: var(--hot); border-top-color: var(--hot); }
-.outcome.held { color: var(--good); }
+/* app.js puts the verdict on the <section class="side">, not on .outcome, and
+   writes the headline itself as a .banner inside it. Styling the wrong one of
+   those is how the two columns end up looking identical after a run that went
+   two completely different ways. */
+#side-unguarded.breached { border-color: var(--hot); }
+#side-unguarded.breached .side-head { border-bottom-color: var(--hot); }
+#side-unguarded.breached .side-state { color: var(--hot); }
+#side-guarded.held { border-color: var(--good); }
+#side-guarded.held .side-head { border-bottom-color: var(--good); }
+#side-guarded.held .side-state { color: var(--good); }
+
+.outcome .banner {
+  display: block;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border: 2px solid var(--faint);
+  font: 700 13px/1.4 var(--sans);
+  letter-spacing: 0.02em;
+}
+.outcome .leaked {
+  border-color: var(--hot);
+  color: var(--hot);
+  background: color-mix(in srgb, var(--hot) 10%, transparent);
+}
+.outcome .safe {
+  border-color: var(--good);
+  color: var(--good);
+  background: color-mix(in srgb, var(--good) 10%, transparent);
+}
+.outcome .answer { font: 400 13px/1.6 var(--sans); color: var(--muted); }
 
 .empty { color: var(--muted); font-size: 14px; margin-top: 20px; }
 
