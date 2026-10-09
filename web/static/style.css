@@ -137,7 +137,7 @@ a:hover { text-decoration: underline; }
   margin: 0 auto;
   padding: 26px 28px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 22px 32px;
   align-items: start;
 }
@@ -176,6 +176,22 @@ textarea:focus, input[type="password"]:focus { outline: 2px solid var(--hot); ou
   flex-wrap: wrap;
 }
 .request-meta small { color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+.google-controls {
+  display: grid;
+  gap: 8px;
+  align-content: end;
+  min-width: 190px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.google-controls legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.google-controls a { color: var(--hot); font: 700 13px/1.4 var(--sans); }
+.google-controls small { max-width: 32ch; color: var(--muted); line-height: 1.45; }
+.google-controls .toggle { margin: 0; }
 
 #reset-request {
   background: none;

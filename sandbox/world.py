@@ -159,6 +159,7 @@ class World:
     pages: dict[str, str] = field(default_factory=_pages)
     sent: list[dict] = field(default_factory=list)
     posted: list[dict] = field(default_factory=list)
+    google: object | None = None
 
     def email(self, email_id: int) -> Email | None:
         return next((e for e in self.emails if e.id == email_id), None)

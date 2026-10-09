@@ -93,11 +93,15 @@ def run_tool(world: World, name: str, args: dict) -> tuple[str, str]:
         return f"Invalid arguments: {invalid}.", "the tool runner"
 
     if name == "inbox_list":
+        if world.google is not None:
+            return world.google.inbox_list(bool(args.get("unread_only")))
         emails = [e for e in world.emails if e.unread or not args.get("unread_only")]
         listing = "\n".join(e.header for e in emails)
         return listing, "your inbox listing"
 
     if name == "inbox_read":
+        if world.google is not None:
+            return world.google.inbox_read(int(args.get("email_id", 0)))
         email = world.email(int(args.get("email_id", 0)))
         if email is None:
             return "No such email.", "your inbox"
@@ -108,6 +112,8 @@ def run_tool(world: World, name: str, args: dict) -> tuple[str, str]:
 
     if name == "files_read":
         path = str(args.get("path", "")).strip()
+        if world.google is not None:
+            return world.google.files_read(path)
         if path not in world.files:
             return f"No such file: {path}", "your files"
         return world.files[path], f"your private file {path}"

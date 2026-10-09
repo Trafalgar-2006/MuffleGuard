@@ -40,6 +40,14 @@
           <button type="button" id="reset-request" hidden>Restore demo request</button>
         </span>
       </div>
+      <fieldset class="google-controls" aria-label="Optional Google data source">
+        <legend>Google data</legend>
+        <span id="google-status" role="status" aria-live="polite">Checking Google connection</span>
+        <a id="google-connect" href="/auth/google/start" hidden>Connect Gmail + Drive</a>
+        <button type="button" id="google-disconnect" hidden>Disconnect</button>
+        <label class="toggle"><input type="checkbox" id="use-google" disabled><span class="toggle-track" aria-hidden="true"></span><span>Use connected Google data</span></label>
+        <small id="google-sharing-note">Read-only access across Gmail and Drive; fetched content goes to the configured model provider. Use synthetic test data.</small>
+      </fieldset>
       <fieldset class="toggles">
         <legend>Guard layers</legend>
         <label class="toggle"><input type="checkbox" id="muffle" checked><span class="toggle-track" aria-hidden="true"></span><span>Muffle hidden instructions</span></label>

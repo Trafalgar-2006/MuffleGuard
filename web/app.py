@@ -20,6 +20,7 @@ import uuid
 from collections import OrderedDict, deque
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -30,6 +31,7 @@ from starlette.background import BackgroundTask
 from muffleguard.audit import AuditLog
 from muffleguard.guard import Guard
 from sandbox.agent import Step, run_agent
+from sandbox.google import GoogleAuthError, GoogleConnector
 from sandbox.llm import LLM, LLMError, load_env
 from sandbox.tools import DESCRIPTIONS, SPECS
 from sandbox.world import DEMO_REQUEST, World
@@ -42,6 +44,7 @@ RESULTS = Path(__file__).resolve().parent.parent / "evaluation" / "results.json"
 
 MAX_API_BODY = 32 * 1024
 MAX_AGENT_STEPS = 8
+MAX_GOOGLE_AGENT_STEPS = 12
 MAX_ACTIVE_RUNS = 8
 
 # Everything is served from here: the pages, their scripts, the animation
@@ -67,6 +70,7 @@ class RunRequest(BaseModel):
     guarded: bool = True
     muffle: bool = True
     detector: bool = False
+    use_google: bool = False
 
     @field_validator("request")
     @classmethod
@@ -305,9 +309,18 @@ def create_app(
     # A single shared log would be overwritten by whoever ran last, so two
     # people opening the demo at once would each see the other's decisions.
     runs = RunRegistry()
+    google = GoogleConnector(
+        env.get("GOOGLE_CLIENT_ID", ""),
+        env.get("GOOGLE_CLIENT_SECRET", ""),
+        env.get("GOOGLE_REDIRECT_URI", ""),
+    )
 
     @app.middleware("http")
     async def secure(request: Request, call_next):
+        if request.scope["path"].startswith("/auth/google/") and not limiter.allow(
+            _client_of(request, trust_proxy)
+        ):
+            return _harden(_json(429, {"detail": "too many requests; wait a minute"}))
         if request.scope["path"].startswith("/api/"):
             # Rate limit first. Checking the passcode first would leave wrong
             # guesses uncounted, so the only authentication on the API could be
@@ -343,29 +356,75 @@ def create_app(
         """The real thing: every line on this page is a decision the guard made."""
         return FileResponse(STATIC / "index.html")
 
+    @app.get("/auth/google/start")
+    def google_start():
+        if not google.enabled:
+            return _harden(RedirectResponse("/live?google=not-configured", status_code=303))
+        session_id = secrets.token_urlsafe(32)
+        response = RedirectResponse(google.begin(session_id), status_code=302)
+        response.set_cookie(
+            "muffle_google_session", session_id, max_age=60 * 60 * 24 * 30,
+            httponly=True, secure=True, samesite="lax", path="/",
+        )
+        return _harden(response)
+
+    @app.get("/auth/google/callback")
+    def google_callback(request: Request):
+        session_id = _google_session(request)
+        state, code = request.query_params.get("state", ""), request.query_params.get("code", "")
+        if request.query_params.get("error") or not session_id or len(state) > 256 or len(code) > 8192:
+            return _harden(RedirectResponse("/live?google=failed", status_code=303))
+        try:
+            google.finish(session_id, state, code)
+        except GoogleAuthError:
+            return _harden(RedirectResponse("/live?google=failed", status_code=303))
+        return _harden(RedirectResponse("/live?google=connected", status_code=303))
+
     @app.get("/api/config")
-    def config() -> dict:
+    def config(request: Request) -> dict:
         """What the page needs to know. Never anything from the environment."""
         return {
             "request": DEMO_REQUEST,
             "passcode_required": bool(passcode),
             "tamper_enabled": allow_tamper,
             "replay_only": replay or budget.remaining < MAX_AGENT_STEPS,
+            "google_run_available": not replay and budget.remaining >= MAX_GOOGLE_AGENT_STEPS,
             "model": env.get("LLM_MODEL", "openai/gpt-4o-mini"),
+            "google_configured": google.enabled,
+            "google_connected": google.is_connected(_google_session(request)),
         }
 
     @app.post("/api/run")
-    def run(body: RunRequest):
+    def run(body: RunRequest, request: Request):
+        workspace = google.workspace(_google_session(request)) if body.use_google else None
+        if body.use_google and workspace is None:
+            return _json(409, {"detail": "Connect your Google test account before using Gmail or Drive data."})
+        if body.use_google and replay:
+            return _json(503, {"detail": "A live model is required before using Google data; recorded replay cannot read your account."})
         if not active_runs.acquire(blocking=False):
             return _json(503, {"detail": "too many active runs; retry shortly"})
         slot = RunSlot(active_runs)
-        # Reserve all eight possible calls before starting; cache hits cost nothing.
-        lease = None if replay else budget.reserve(MAX_AGENT_STEPS)
+        # Google runs need room to read up to ten messages and still return an answer.
+        step_limit = MAX_GOOGLE_AGENT_STEPS if body.use_google else MAX_AGENT_STEPS
+        lease = None if replay else budget.reserve(step_limit)
+        if body.use_google and lease is None:
+            slot.release()
+            return _json(429, {"detail": "The live model call budget is exhausted; Google data was not read."})
         return StreamingResponse(
-            _stream(body, runs, replay=lease is None, lease=lease, slot=slot),
+            _stream(body, runs, replay=lease is None, lease=lease, slot=slot, google_workspace=workspace),
             media_type="application/x-ndjson",
             background=BackgroundTask(slot.release_if_unstarted),
         )
+
+    @app.post("/api/google/disconnect")
+    def google_disconnect(request: Request):
+        origin = request.headers.get("origin", "")
+        if not origin or urlsplit(origin).netloc.lower() != request.headers.get("host", "").lower():
+            raise HTTPException(403, "same-origin request required")
+        google.disconnect(_google_session(request))
+        response = JSONResponse({"connected": False})
+        response.delete_cookie("muffle_google_session", path="/", httponly=True, secure=True, samesite="lax")
+        return response
 
     @app.get("/api/scorecard")
     def scorecard() -> dict:
@@ -460,6 +519,11 @@ def _passcode_ok(supplied: str, expected: str) -> bool:
     return secrets.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8"))
 
 
+def _google_session(request: Request) -> str:
+    value = request.cookies.get("muffle_google_session", "")
+    return value if 40 <= len(value) <= 100 else ""
+
+
 def _client_of(request: Request, trust_proxy: bool) -> str:
     """Who to count this request against.
 
@@ -496,6 +560,7 @@ def _stream(
     replay: bool,
     slot: RunSlot,
     lease: DailyBudgetLease | None = None,
+    google_workspace=None,
 ):
     """Run the agent on a worker thread and yield each step as it is produced.
 
@@ -503,7 +568,7 @@ def _stream(
     into something the page can render as it happens.
     """
     steps: queue.Queue = queue.Queue()
-    world = World()
+    world = World(google=google_workspace)
     guard = (
         Guard(tools=SPECS, detector=_detector(body.detector), muffle=body.muffle, descriptions=DESCRIPTIONS)
         if body.guarded
@@ -517,11 +582,15 @@ def _stream(
 
     def work() -> None:
         try:
+            llm_options = {"replay": replay, "on_live_call": lease.take if lease else None}
+            if body.use_google:
+                llm_options["use_cache"] = False
             result["run"] = run_agent(
                 body.request,
                 world=world,
                 guard=guard,
-                llm=LLM(replay=replay, on_live_call=lease.take if lease else None),
+                max_steps=MAX_GOOGLE_AGENT_STEPS if body.use_google else MAX_AGENT_STEPS,
+                llm=LLM(**llm_options),
                 on_step=steps.put,
             )
         except LLMError as exc:

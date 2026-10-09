@@ -61,7 +61,9 @@ async function stream(body, onEvent) {
     response = await fetch("/api/run", { method: "POST", headers: headers(), body: JSON.stringify(body) });
   }
   if (!response.ok) {
-    onEvent({ type: "done", error: response.status === 401 ? "The passcode was not accepted." : `The server refused the run (${response.status}).` });
+    let message = response.status === 401 ? "The passcode was not accepted." : `The server refused the run (${response.status}).`;
+    try { message = (await response.json()).detail || message; } catch { /* keep generic */ }
+    onEvent({ type: "done", error: message });
     return true;
   }
 
@@ -301,7 +303,12 @@ async function runBoth(event) {
   $("run-status").textContent = "Starting the unguarded baseline...";
 
   const request = $("request").value.trim() || config.request;
-  const options = { request, muffle: $("muffle").checked, detector: $("detector").checked };
+  const options = {
+    request,
+    muffle: $("muffle").checked,
+    detector: $("detector").checked,
+    use_google: $("use-google").checked,
+  };
 
   try {
     await runSides(options);
@@ -392,6 +399,37 @@ async function main() {
     : "Custom prompts use the configured live model; the bundled request uses a recorded demo.";
   $("model-note").textContent = `Agent model: ${config.model}`;
   $("tamper").hidden = !config.tamper_enabled;
+
+  const googleStatus = $("google-status");
+  const connectGoogle = $("google-connect");
+  const disconnectGoogle = $("google-disconnect");
+  const useGoogle = $("use-google");
+  connectGoogle.hidden = !config.google_configured || config.google_connected;
+  disconnectGoogle.hidden = !config.google_connected;
+  useGoogle.disabled = !config.google_connected || !config.google_run_available;
+  googleStatus.textContent = config.google_connected
+    ? !config.google_run_available ? "Google connected; a live model and call budget are required" : "Google account connected"
+    : config.google_configured ? "Google account not connected" : "Google OAuth needs server setup";
+  const googleResult = new URLSearchParams(location.search).get("google");
+  if (googleResult === "connected") googleStatus.textContent = !config.google_run_available
+    ? "Google connected; configure a live model and call budget before using data."
+    : "Google account connected; choose whether to use its data.";
+  if (googleResult === "failed") googleStatus.textContent = "Google sign-in failed. Check the OAuth setup and try again.";
+  if (googleResult === "not-configured") googleStatus.textContent = "Google OAuth needs server setup before you can connect.";
+  if (googleResult) history.replaceState(null, "", location.pathname);
+  disconnectGoogle.addEventListener("click", async () => {
+    const response = await fetch("/api/google/disconnect", { method: "POST", headers: headers() });
+    if (!response.ok) {
+      googleStatus.textContent = "Could not disconnect Google. Reload and try again.";
+      return;
+    }
+    useGoogle.checked = false;
+    useGoogle.disabled = true;
+    disconnectGoogle.hidden = true;
+    connectGoogle.hidden = !config.google_configured;
+    googleStatus.textContent = "Google account disconnected";
+    config.google_connected = false;
+  });
 
   // Wire the controls first: a scorecard that fails to load must not leave
   // the page without a working Run button.

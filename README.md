@@ -85,9 +85,50 @@ variables. The page should then show **Live model available**, and custom
 requests will be sent to that model.
 
 Never put a provider key in the browser, this repository, or a committed
-`.env` file. Prompts go to the configured model provider, while the inbox, file,
-and outbound tools remain a simulated in-memory world; this demo cannot inspect
-or delete real files.
+`.env` file. By default the inbox and files remain simulated. The optional
+Google connector can read Gmail and text files from Drive after an explicit
+account connection and the **Use connected Google data** toggle. It cannot
+send email, edit, or delete Drive data. Mail and file content is sent to the
+configured model provider when a run uses Google data; use synthetic test data.
+
+### Connect a Google test account
+
+Enable Gmail API and Google Drive API in the Cloud project, set the OAuth
+audience to External / Testing, and add the test account under **Audience → Test
+users**. In **Data Access**, include `gmail.readonly` and
+`drive.readonly`. This connector requests read-only access so it can search the
+test inbox and find named files in Drive; Google's consent screen will show
+those permissions. These are restricted scopes. Keep the app in Testing for
+your listed test user; publishing for other users requires Google verification,
+and server storage or transmission of restricted-scope data can require a
+security assessment. `drive.readonly` grants read-only access across the Drive,
+so use only the disposable test account.
+
+For this first connector, a run lists at most 10 inbox messages and reads their
+message bodies (attachments are skipped). Drive reads text, Markdown, CSV, JSON,
+Google Docs, and Google Sheets files up to 1 MB; give the agent an exact unique
+file name.
+
+Create a **Web application** OAuth client and add this exact authorized redirect
+URI:
+
+```text
+https://attack-lab-production.up.railway.app/auth/google/callback
+```
+
+In Railway's service Variables, set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+and `GOOGLE_REDIRECT_URI` to the OAuth client's values and the same callback URI.
+Keep the client secret in Railway only. Redeploy, open the Attack Lab, choose
+**Connect Gmail + Drive**, sign in as the test user, then select **Use connected
+Google data** before running. A live model key is also required; recorded replay
+cannot read Google data. Each Google-side run reserves up to 12 model calls so
+it can read a mailbox and still finish; keep `DEMO_DAILY_RUNS` at 24 or higher
+for a complete two-agent comparison.
+
+OAuth tokens are kept in process memory, never written to disk. The connector
+uses one Railway process; restarting or redeploying clears the connection, so
+connect again afterward. Runs are on demand, not background sync. While the
+OAuth app remains in Testing, Google may expire refresh tokens after seven days.
 
 Sentence classifiers are off by default. Pass `--detector` after placing both
 ONNX model snapshots in the local Hugging Face cache; MuffleGuard does not
