@@ -15,6 +15,7 @@ possible to switch off a layer at a time, which the red-team suite relies on:
 
 from __future__ import annotations
 
+import os
 import uuid
 from dataclasses import dataclass, field
 from typing import Literal
@@ -72,9 +73,23 @@ class Guard:
         # It is how the red-team suite simulates every content defence failing
         # at once, leaving only the policy engine to stop the exfiltration.
         self.muffle = muffle
-        self.audit = audit or AuditLog()
+        self._owns_audit = audit is None
+        self.audit = audit if audit is not None else AuditLog(
+            os.environ.get("MUFFLEGUARD_AUDIT_PATH") or ":memory:"
+        )
         self.ledger = Ledger() if ledger is None else ledger
         self.pending: dict[str, tuple[str, dict]] = {}
+
+    def close(self) -> None:
+        """Close the audit database when this guard created it."""
+        if self._owns_audit:
+            self.audit.close()
+
+    def __enter__(self) -> Guard:
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        self.close()
 
     # -- the seam ------------------------------------------------------------
 
@@ -88,7 +103,7 @@ class Guard:
                 "decision": result.decision.value,
                 "rules": [r.rule for r in result.reasons],
                 "reasons": [r.text for r in result.reasons],
-                "muffled": list(result.muffled),
+                "muffled_count": len(result.muffled),
                 "hidden": [h.kind for h in result.hidden],
             },
         )

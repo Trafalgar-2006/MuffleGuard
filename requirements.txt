@@ -1,9 +1,13 @@
 # The detectors run on the CPU through ONNX Runtime, so torch is not needed.
 onnxruntime==1.31.0
-tokenizers==0.23.2
+# Keep at 0.22.2 until a patched stable BPE loader is released.
+# injection.py rejects unsafe merges before calling native tokenizer code.
+tokenizers==0.22.2
 numpy==2.4.6
 
-# The dashboard and the agent's HTTP client.
+# The agent's HTTP client.
+httpx==0.28.1
+
+# The Attack Lab (web/app.py) is served with these.
 fastapi==0.120.4
 uvicorn==0.38.0
-httpx==0.28.1

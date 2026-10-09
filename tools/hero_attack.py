@@ -71,15 +71,21 @@ def main() -> int:
 
     env = load_env()
     model = env.get("LLM_MODEL_STRONG") if args.strong else env.get("LLM_MODEL")
-    print(f"{BOLD}MuffleGuard hero attack{OFF}  model={model}  detectors={'on' if args.detector else 'OFF'}")
-    print(f"{DIM}request: {REQUEST}{OFF}")
 
     detector = None
     if args.detector:
         from muffleguard.detectors.injection import InjectionDetector
 
         detector = InjectionDetector()
-        detector.available()
+        if not detector.available():
+            print(
+                f"{RED}Detector mode needs both local ONNX model snapshots and runtime dependencies.{OFF}"
+            )
+            print(f"{DIM}See README.md for the local model setup.{OFF}")
+            return 2
+
+    print(f"{BOLD}MuffleGuard hero attack{OFF}  model={model}  detectors={'on' if detector else 'OFF'}")
+    print(f"{DIM}request: {REQUEST}{OFF}")
 
     started = time.time()
     undefended = run_agent(
@@ -87,26 +93,26 @@ def main() -> int:
     )
     show(undefended, "1. No guard")
 
-    guard = Guard(tools=SPECS, detector=detector, muffle=not args.no_muffle)
-    defended = run_agent(
-        REQUEST, world=World(), guard=guard, llm=LLM(model, env, not args.no_cache)
-    )
-    mode = (
-        "every content defence off, policy engine only"
-        if args.no_muffle
-        else ("detectors on" if detector else "policy engine and hidden-text stripping")
-    )
-    show(defended, f"2. MuffleGuard ({mode})")
+    with Guard(tools=SPECS, detector=detector, muffle=not args.no_muffle) as guard:
+        defended = run_agent(
+            REQUEST, world=World(), guard=guard, llm=LLM(model, env, not args.no_cache)
+        )
+        mode = (
+            "every content defence off, policy engine only"
+            if args.no_muffle
+            else ("detectors on" if detector else "policy engine and hidden-text stripping")
+        )
+        show(defended, f"2. MuffleGuard ({mode})")
 
-    chain = guard.audit.verify()
-    print(f"\n{BOLD}Audit{OFF}  {len(guard.audit.entries())} entries, chain "
-          f"{GREEN + 'verifies' + OFF if chain.ok else RED + 'broken' + OFF}")
-    print(f"{DIM}{time.time() - started:.1f}s total{OFF}")
+        chain = guard.audit.verify()
+        print(f"\n{BOLD}Audit{OFF}  {len(guard.audit.entries())} entries, chain "
+              f"{GREEN + 'verifies' + OFF if chain.ok else RED + 'broken' + OFF}")
+        print(f"{DIM}{time.time() - started:.1f}s total{OFF}")
 
-    gate = undefended.breached and not defended.breached
-    print(f"\n{BOLD}GATE: {(GREEN + 'PASS') if gate else (RED + 'FAIL')}{OFF}"
-          f"  leaks undefended={undefended.breached}  leaks defended={defended.breached}")
-    return 0 if gate else 1
+        gate = undefended.breached and not defended.breached
+        print(f"\n{BOLD}GATE: {(GREEN + 'PASS') if gate else (RED + 'FAIL')}{OFF}"
+              f"  leaks undefended={undefended.breached}  leaks defended={defended.breached}")
+        return 0 if gate else 1
 
 
 if __name__ == "__main__":

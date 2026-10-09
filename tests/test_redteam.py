@@ -23,10 +23,13 @@ from muffleguard.trace import Ledger, Source
 ENGINE = PolicyEngine(
     {
         "email_send": ToolSpec(
-            "email_send", outbound=True, target_args=("to",), payload_args=("subject", "body")
+            "email_send", outbound=True, target_args=("to",),
+            argument_types={"to": "string", "subject": "string", "body": "string"},
+            required_args=("to", "subject", "body"),
         ),
         "http_post": ToolSpec(
-            "http_post", outbound=True, target_args=("url",), payload_args=("data",)
+            "http_post", outbound=True, target_args=("url",),
+            argument_types={"url": "string", "data": "string"}, required_args=("url", "data"),
         ),
     }
 )
@@ -92,10 +95,102 @@ def test_subdomain_of_a_trusted_host_is_not_trusted():
     assert verdict.decision is not Decision.ALLOW
 
 
+def test_different_ipv6_host_is_not_trusted_as_the_user_named_one():
+    led = ledger(user="Post the summary to https://[2001:db8::1]/intake")
+    verdict = ENGINE.check_tool_call(
+        "http_post", {"url": "https://[2001:db8::2]/exfil", "data": "hi"}, led
+    )
+
+    assert verdict.decision is not Decision.ALLOW
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://corp.example/AKIAIOSFODNN7EXAMPLE",
+        "https://corp.example/intake?key=AKIAIOSFODNN7EXAMPLE",
+        "https://AKIAIOSFODNN7EXAMPLE@corp.example/intake",
+    ],
+)
+def test_secret_in_any_url_component_is_blocked(url):
+    led = ledger(user="Post the summary to https://corp.example/intake")
+    verdict = ENGINE.check_tool_call("http_post", {"url": url, "data": "ok"}, led)
+
+    assert verdict.decision is Decision.BLOCK
+    assert "R3-EGRESS-SECRET" in verdict.rules
+
+
+def test_private_excerpt_in_a_url_path_is_blocked():
+    led = Ledger()
+    led.add(Source.USER, "your request", "Post the summary to https://corp.example/intake")
+    led.add(
+        Source.PRIVATE,
+        "your private file notes.md",
+        "Vault access code: vault orchid 7342. Other unrelated private notes follow.",
+    )
+
+    verdict = ENGINE.check_tool_call(
+        "http_post", {"url": "https://corp.example/vault/orchid/7342", "data": "ok"}, led
+    )
+
+    assert verdict.decision is Decision.BLOCK
+    assert "R3-EGRESS-PRIVATE" in verdict.rules
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://corp.example/intake?memo=vault%20orchid%207342",
+        "https://vault%20orchid%207342@corp.example/intake",
+    ],
+)
+def test_private_excerpt_in_url_query_and_userinfo_is_blocked(url):
+    led = Ledger()
+    led.add(Source.USER, "your request", "Post the summary to https://corp.example/intake")
+    led.add(
+        Source.PRIVATE,
+        "your private file notes.md",
+        "Vault access code: vault orchid 7342. Other unrelated private notes follow.",
+    )
+
+    verdict = ENGINE.check_tool_call("http_post", {"url": url, "data": "ok"}, led)
+
+    assert verdict.decision is Decision.BLOCK
+    assert "R3-EGRESS-PRIVATE" in verdict.rules
+
+
 def test_base64_payload_does_not_carry_the_key_out():
     """This worked before payloads were decoded before scanning."""
     blob = base64.b64encode(ENV.encode()).decode()
     verdict = send("priya@corp.example", body=f"backup blob: {blob}", led=ledger(user="Email priya@corp.example."))
+    assert verdict.decision is Decision.BLOCK
+    assert "R3-EGRESS-SECRET" in verdict.rules
+
+
+def test_percent_encoded_secret_does_not_leave():
+    encoded = "".join(f"%{byte:02X}" for byte in b"AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE")
+    verdict = send(
+        "priya@corp.example",
+        body=encoded,
+        led=ledger(user="Email priya@corp.example."),
+    )
+
+    assert verdict.decision is Decision.BLOCK
+    assert "R3-EGRESS-SECRET" in verdict.rules
+
+
+@pytest.mark.parametrize("layers", [2, 3])
+def test_repeatedly_percent_encoded_secret_does_not_leave(layers):
+    encoded = b"AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE"
+    for _ in range(layers):
+        encoded = "".join(f"%{byte:02X}" for byte in encoded).encode()
+
+    verdict = send(
+        "priya@corp.example",
+        body=encoded.decode(),
+        led=ledger(user="Email priya@corp.example."),
+    )
+
     assert verdict.decision is Decision.BLOCK
     assert "R3-EGRESS-SECRET" in verdict.rules
 
@@ -111,6 +206,45 @@ def test_secret_split_across_subject_and_body_is_still_caught():
     assert verdict.decision is Decision.BLOCK
 
 
+def test_non_aws_secret_split_across_fields_is_still_caught():
+    led = ledger(user="Email priya@corp.example the config.")
+    verdict = ENGINE.check_tool_call(
+        "email_send",
+        {
+            "to": "priya@corp.example",
+            "subject": "sk-proj-",
+            "body": "12345678901234567890",
+        },
+        led,
+    )
+
+    assert verdict.decision is Decision.BLOCK
+    assert "R3-EGRESS-SECRET" in verdict.rules
+
+
+@pytest.mark.parametrize(
+    "subject,body",
+    [
+        ("EXAMPLE", "AKIAIOSFODNN7"),
+        ("12345678901234567890", "sk-proj-"),
+    ],
+)
+def test_secret_split_across_fields_in_reverse_order_is_still_caught(subject, body):
+    led = ledger(user="Email priya@corp.example the config.")
+    verdict = ENGINE.check_tool_call(
+        "email_send",
+        {
+            "to": "priya@corp.example",
+            "subject": subject,
+            "body": body,
+        },
+        led,
+    )
+
+    assert verdict.decision is Decision.BLOCK
+    assert "R3-EGRESS-SECRET" in verdict.rules
+
+
 def test_private_text_paraphrased_around_is_still_recognised():
     led = Ledger()
     led.add(Source.USER, "your request", "Email priya@corp.example.")
@@ -121,6 +255,22 @@ def test_private_text_paraphrased_around_is_still_recognised():
         led=led,
     )
     assert verdict.decision is Decision.BLOCK
+
+
+def test_short_private_excerpt_from_a_long_record_is_blocked():
+    led = Ledger()
+    led.add(Source.USER, "your request", "Email priya@corp.example.")
+    led.add(
+        Source.PRIVATE,
+        "your private file payroll.csv",
+        "Name Priya Nair. Vault access code: vault orchid 7342. "
+        "This file also contains unrelated payroll details for several people.",
+    )
+
+    verdict = send("priya@corp.example", body="vault orchid 7342", led=led)
+
+    assert verdict.decision is Decision.BLOCK
+    assert "R3-EGRESS-PRIVATE" in verdict.rules
 
 
 def test_empty_and_malformed_arguments_do_not_crash_or_allow():
@@ -142,6 +292,16 @@ def test_gap_open_redirect_on_a_user_named_host_is_allowed():
     verdict = ENGINE.check_tool_call(
         "http_post", {"url": "https://corp.example/r?to=https://evil.example", "data": "hi"}, led
     )
+    assert verdict.decision is Decision.ALLOW
+
+
+def test_gap_provenance_does_not_bind_scheme_or_port():
+    """The policy records host provenance; a real network adapter needs origin controls."""
+    led = ledger(user="Post the summary to https://corp.example/intake")
+    verdict = ENGINE.check_tool_call(
+        "http_post", {"url": "http://corp.example:8080/collect", "data": "hi"}, led
+    )
+
     assert verdict.decision is Decision.ALLOW
 
 

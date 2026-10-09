@@ -95,7 +95,7 @@ class Finding:
 
 # Vendor prefixes are unambiguous, so a match alone is conclusive.
 _PREFIXED: tuple[tuple[str, str], ...] = (
-    ("aws_access_key", r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
+    ("aws_access_key", r"(?<![A-Z0-9])(?:AKIA|ASIA)[0-9A-Z]{16}(?![A-Z0-9])"),
     ("openrouter_key", r"\bsk-or-v1-[0-9a-f]{64}\b"),
     ("openai_key", r"\bsk-(?:proj-)?[A-Za-z0-9_\-]{20,}\b"),
     ("github_token", r"\bgh[posur]_[A-Za-z0-9]{36,}\b"),

@@ -20,7 +20,9 @@ from muffleguard.trace import Ledger, Source
 ENGINE = PolicyEngine(
     {
         "email_send": ToolSpec(
-            "email_send", outbound=True, target_args=("to",), payload_args=("subject", "body")
+            "email_send", outbound=True, target_args=("to",),
+            argument_types={"to": "string", "subject": "string", "body": "string"},
+            required_args=("to", "subject", "body"),
         )
     }
 )
