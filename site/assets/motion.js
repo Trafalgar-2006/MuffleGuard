@@ -327,7 +327,7 @@
     }, { passive: true });
   }
 
-  /* --------------------------- 7. parallax  8. skew  9. rules draw */
+  /* ------------------------------- 7. parallax  8. rules draw */
 
   function scrollEffects() {
     if (REDUCED || !gsap || !window.ScrollTrigger) return;
@@ -340,19 +340,6 @@
         scrollTrigger: { trigger: poster, start: "top bottom", end: "bottom top", scrub: 0.6 }
       });
     }
-
-    // the whole page leans a little into a fast scroll and settles when it stops
-    var main = $("main") || document.body;
-    var skew = { v: 0 };
-    window.ScrollTrigger.create({
-      onUpdate: function (self) {
-        var next = Math.max(-5, Math.min(5, self.getVelocity() / 420));
-        if (Math.abs(next - skew.v) < 0.05) return;
-        skew.v = next;
-        gsap.to(main, { skewY: next, duration: 0.5, ease: "power3.out", overwrite: "auto" });
-        gsap.to(main, { skewY: 0, duration: 0.9, ease: "power2.out", delay: 0.12, overwrite: false });
-      }
-    });
 
     // every 2px divider inks itself across as it arrives
     $$("section").forEach(function (sec) {

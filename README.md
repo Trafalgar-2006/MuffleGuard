@@ -41,8 +41,8 @@ Every decision is written to a hash-chained SQLite log. A separately recorded
 head makes deleting the last row detectable while the database metadata remains
 intact.
 
-Live demo: **https://attack-lab-production.up.railway.app** — the site is at `/`, the working Attack Lab at
-`/live`, and the designed lab walkthrough at `/lab`.
+Live demo: **https://attack-lab-production.up.railway.app** — the site is at `/` and the
+Attack Lab, with a real guard behind it, at `/live`.
 
 ## Try it
 
@@ -59,9 +59,10 @@ Or open the Attack Lab in a browser:
 .venv/Scripts/python -m uvicorn web.app:app --port 8000
 ```
 
-`/` is the site, `/live` is the Attack Lab with a real guard behind it, and
-`/lab` is the same lab as a scripted walkthrough. The site pages are built
-from the design exports by `python tools/port_design.py <export folder>`.
+`/` is the site and `/live` is the Attack Lab, with a real guard behind it:
+every line on that page is a decision the guard actually made. The site pages
+are built from the design exports by `python tools/port_design.py <export
+folder>`.
 
 Both runs appear side by side, streamed as they happen, with the injected
 sentences struck through and every refusal carrying the line that explains it.

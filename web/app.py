@@ -336,7 +336,7 @@ def create_app(
         the app it was imitating: a visitor landing on it would be reading a
         picture of a result rather than a result. Old links still work.
         """
-        return RedirectResponse("/live", status_code=308)
+        return RedirectResponse("/live", status_code=307)
 
     @app.get("/live")
     def live_lab() -> FileResponse:

@@ -153,6 +153,21 @@ def _bar(value: int, hot: bool) -> str:
             ';transform-origin:left center;transform:scaleX(0)"></span></span>')
 
 
+def _internalise_lab_links(t: str) -> str:
+    """Drop target/rel from links that are no longer external.
+
+    The export pointed the Attack Lab buttons at the Railway URL, so it gave
+    them target="_blank". Rewriting the href to /live without removing those
+    left the same destination opening in a new tab from some links and in the
+    current tab from others.
+    """
+    return re.sub(
+        r'(<a [^>]*href="/live"[^>]*)',
+        lambda m: re.sub(r'\s+(?:target="_blank"|rel="noopener")', "", m.group(1)),
+        t,
+    )
+
+
 def fixups(path: Path) -> None:
     """The edits the export needs before it is a page we would ship."""
     t = path.read_text(encoding="utf-8")
@@ -163,12 +178,17 @@ def fixups(path: Path) -> None:
     # empty custom elements the export left in the portrait grid
     t = t.replace("<g-wrap></g-wrap>", "")
 
-    # the pages are served at /, /docs and /lab, and this deployment's own
-    # hostname is now the landing page, so the working lab moved to /live
+    # the pages are served at / and /docs, and this deployment's own hostname
+    # is now the landing page, so the working lab sits at /live
     t = t.replace('href="index.html"', 'href="/"')
     t = t.replace('href="docs.html"', 'href="/docs"')
     t = t.replace('href="lab.html"', 'href="/live"')
     t = t.replace(LIVE, "/live")
+    # Those two rewrites turn an external link into a local one, so the
+    # new-tab attributes the export added for the Railway URL have to go with
+    # it. Without this the same destination opened in a new tab from some
+    # links and the current tab from others.
+    t = _internalise_lab_links(t)
     t = t.replace('href="assets/', 'href="/assets/').replace('src="assets/', 'src="/assets/')
 
     if path.name == "index.html":

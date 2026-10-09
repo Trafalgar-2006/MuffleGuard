@@ -118,7 +118,9 @@ def test_there_is_one_attack_lab_not_two():
 
     client = TestClient(create_app(passcode="", replay=True), follow_redirects=False)
     response = client.get("/lab")
-    assert response.status_code == 308
+    # Temporary, not permanent: a 308 is cached by the browser, so restoring a
+    # page at /lab later would be unreachable for anyone who had visited once.
+    assert response.status_code == 307
     assert response.headers["location"] == "/live"
 
     assert not (SITE / "lab.html").exists(), "the replica should be gone, not hidden"
