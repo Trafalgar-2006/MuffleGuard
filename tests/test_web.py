@@ -273,3 +273,32 @@ def test_the_replay_message_says_what_to_do(client):
     """The page shows this verbatim, so it has to be an instruction."""
     done = run(client, guarded=False, request="a request nobody has cached")[-1]
     assert "Run both without changing the request" in done["error"]
+
+
+def test_the_daily_budget_falls_back_to_the_recording_instead_of_spending(monkeypatch):
+    """A public URL with a live key needs a ceiling on the bill, not just on one visitor.
+
+    Past the day's allowance the run still works: it replays the recorded one,
+    which is what most visitors press anyway.
+    """
+    monkeypatch.setenv("LLM_API_KEY", "sk-test-never-called")
+    monkeypatch.setenv("DEMO_DAILY_RUNS", "2")
+    app = TestClient(create_app(passcode=""))
+
+    assert app.get("/api/config").json()["replay_only"] is False
+    for _ in range(2):
+        app.post("/api/run", json={"request": DEMO_REQUEST, "guarded": True})
+
+    # The allowance is gone, so the next run replays rather than calling out.
+    events = lines(app.post("/api/run", json={"request": DEMO_REQUEST, "guarded": True}))
+    assert events[-1]["error"] == ""
+    assert app.get("/api/config").json()["replay_only"] is True
+
+
+def test_a_cached_run_never_spends_the_budget(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "sk-test-never-called")
+    monkeypatch.setenv("DEMO_DAILY_RUNS", "1")
+    app = TestClient(create_app(passcode="", replay=True))
+    for _ in range(3):
+        app.post("/api/run", json={"request": DEMO_REQUEST, "guarded": True})
+    assert app.get("/api/config").json()["replay_only"] is True

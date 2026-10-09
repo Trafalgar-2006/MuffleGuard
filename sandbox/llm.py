@@ -56,6 +56,7 @@ SETTINGS = (
     "LLM_MODEL_STRONG",
     "DEMO_PASSCODE",
     "DEMO_TAMPER",
+    "DEMO_DAILY_RUNS",
     "TRUST_PROXY",
 )
 

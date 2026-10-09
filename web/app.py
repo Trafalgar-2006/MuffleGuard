@@ -18,6 +18,7 @@ import threading
 import time
 import uuid
 from collections import OrderedDict, defaultdict, deque
+from datetime import date
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
@@ -89,6 +90,37 @@ class RunRegistry:
             return AuditLog()
 
 
+class DailyBudget:
+    """A ceiling on live model calls per day, for a URL anyone can reach.
+
+    The per-IP rate limit bounds one visitor; it does nothing about a thousand
+    of them, or a crawler that finds the link. This bounds the bill instead of
+    the visitor. Reaching it does not break the demo: the run falls back to the
+    recorded one, which is what most visitors press anyway.
+    """
+
+    def __init__(self, limit: int) -> None:
+        self.limit = limit
+        self.day = date.today()
+        self.spent = 0
+        self.lock = threading.Lock()
+
+    def take(self) -> bool:
+        with self.lock:
+            today = date.today()
+            if today != self.day:
+                self.day, self.spent = today, 0
+            if self.spent >= self.limit:
+                return False
+            self.spent += 1
+            return True
+
+    @property
+    def remaining(self) -> int:
+        with self.lock:
+            return max(0, self.limit - self.spent) if date.today() == self.day else self.limit
+
+
 class RateLimiter:
     """A fixed window per client address.
 
@@ -143,6 +175,7 @@ def create_app(
 
     app = FastAPI(title="MuffleGuard Attack Lab", docs_url=None, redoc_url=None)
     limiter = RateLimiter(rate_limit)
+    budget = DailyBudget(int(env.get("DEMO_DAILY_RUNS", "200")))
     # One audit log per run, keyed by the id handed to the page that started it.
     # A single shared log would be overwritten by whoever ran last, so two
     # people opening the demo at once would each see the other's decisions.
@@ -172,14 +205,18 @@ def create_app(
             "request": DEMO_REQUEST,
             "passcode_required": bool(passcode),
             "tamper_enabled": allow_tamper,
-            "replay_only": replay,
+            "replay_only": replay or budget.remaining == 0,
             "model": env.get("LLM_MODEL", "openai/gpt-4o-mini"),
         }
 
     @app.post("/api/run")
     def run(body: RunRequest) -> StreamingResponse:
+        # A cached run costs nothing, so it never touches the budget. Only a
+        # run that would actually call the model does, and once the day's
+        # allowance is gone the rest fall back to the recording.
+        live = not replay and budget.take()
         return StreamingResponse(
-            _stream(body, runs, replay), media_type="application/x-ndjson"
+            _stream(body, runs, replay=not live), media_type="application/x-ndjson"
         )
 
     @app.get("/api/audit")
