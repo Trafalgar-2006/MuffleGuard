@@ -74,8 +74,17 @@ def tracked_files() -> list[str]:
     return [line for line in out.splitlines() if line]
 
 
+def _looks_utf16(raw: bytes) -> bool:
+    """UTF-16 text: a BOM, or ASCII bytes alternating with NULs."""
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return True
+    head = raw[:512]
+    return len(head) > 8 and head[1::2].count(0) > len(head) // 3
+
+
 def main() -> int:
     findings: list[tuple[str, str, str]] = []
+    skipped_binary = 0
     for name in tracked_files():
         path = ROOT / name
         try:
@@ -85,8 +94,14 @@ def main() -> int:
         # A file Notepad saved as "Unicode" is UTF-16, and decoding it strictly
         # as UTF-8 used to skip it silently: a real key in such a file passed
         # the gate. Decode what we can instead of giving up on the file.
+        # A real binary is not text and scanning it as text invents findings:
+        # random bytes produce Luhn-valid digit runs. Skipped on purpose, and
+        # counted, because a file skipped silently is how a key gets through.
+        if 0 in raw[:1024] and not _looks_utf16(raw):
+            skipped_binary += 1
+            continue
         text = raw.decode("utf-8", errors="ignore")
-        if raw[:64].count(0) > 2:
+        if _looks_utf16(raw):
             text += raw.decode("utf-16", errors="ignore")
         for finding in scan(text):
             if finding.value in FIXTURE_VALUES.get(name, set()):
@@ -100,7 +115,10 @@ def main() -> int:
         print("\nIf one is a deliberate fixture, allow its exact synthetic value in FIXTURE_VALUES.")
         return 1
 
-    print(f"{len(tracked_files())} tracked files scanned, nothing credential-shaped.")
+    print(
+        f"{len(tracked_files()) - skipped_binary} tracked text files scanned, "
+        f"nothing credential-shaped ({skipped_binary} binary skipped)."
+    )
     return 0
 
 
