@@ -113,6 +113,57 @@ These are deliberate, and each is written down in the README or asserted in
 - **Detectors take 129-830 ms per email.** Being measured properly later. The
   policy engine, which does the blocking, is microseconds.
 
+## Phases 3 and 4, for this round
+
+Phase 3 is the evaluation (`evaluation/`), Phase 4 the hardening: tool-description
+pinning, CI, and a secret gate over the tracked files.
+
+| # | Command | What should happen |
+| --- | --- | --- |
+| 7 | `.venv/Scripts/python tools/check_secrets.py` | 72 files scanned, nothing credential-shaped, exit 0 |
+| 8 | `git log --oneline -8` | Every claim below should match a commit message |
+
+### Where these are weakest
+
+Each of these was wrong once already and was fixed. That makes them the places
+to push hardest, not the places to skip.
+
+1. **Does the evaluation flatter the guard?** It did, twice. The control runs
+   used the demo world, which ships three live payloads, so "clean" runs were
+   under attack. Planting one attack left the other two in place, so no breach
+   was attributable. The suite also ran with the response cache on, replaying
+   recordings instead of calling anything. Check `evaluation/suite.py` and
+   `benign_world()` in `sandbox/world.py` and try to find a fourth version of
+   the same mistake.
+2. **Is the adversary honest?** `evaluation/adversary.py` is a deterministic
+   stand-in for a model with no judgement, and the headline numbers come from
+   it. Two things must hold: it must breach every attack undefended, or the
+   suite measures nothing; and it must only act on what the guard let through,
+   or muffling would score as working when it did nothing. If you can make it
+   exfiltrate something it never read, the numbers are worthless.
+3. **Is the pinning real?** It was inert on first commit: nothing in the demo
+   passed `descriptions=`, so the rule only ever fired in its own tests. It now
+   holds a reference to the live mapping. Try mutating `sandbox.tools.DESCRIPTIONS`
+   at runtime and confirm the next tool call is refused, and try to find a
+   legitimate flow it now blocks by mistake.
+4. **Does the secret gate actually gate?** It skipped any file it could not
+   decode as UTF-8 while still counting it as scanned, so a key in a UTF-16 file
+   passed CI. Try other encodings, and try a key shape the detector misses.
+5. **Does `completed` mean completed?** A step-limit placeholder and a refusal
+   headline both used to count as finished work, which would let a guard that
+   blocks everything score 100% on utility. See `_finished` in
+   `evaluation/redteam.py`.
+
+### Stated plainly, so they are not findings
+
+- The headline numbers use the deterministic agent, not a model. How often a
+  real model obeys one of these injections is that model's property; the Attack
+  Lab shows it live, the scorecard does not claim it.
+- A live-model evaluation needs provider credit. The account has none, so the
+  last live attempt failed 47 of 216 runs and was not reported.
+- The classifiers are not in any of the three scorecard conditions, so no claim
+  is made about them.
+
 ## Reporting
 
 For anything you find, please give: the command, what you expected, what
