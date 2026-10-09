@@ -142,8 +142,13 @@ class LLM:
 
         key = self._key(body)
         cached = CACHE_DIR / f"{key}.json"
-        if self.use_cache and cached.exists():
-            return json.loads(cached.read_text(encoding="utf-8"))
+        if self.use_cache:
+            # The committed fixtures first, then whatever this machine happens
+            # to have recorded.
+            for folder in (DEMO_CACHE, CACHE_DIR):
+                recorded = folder / f"{key}.json"
+                if recorded.exists():
+                    return json.loads(recorded.read_text(encoding="utf-8"))
 
         if self.replay:
             raise LLMError(
