@@ -90,7 +90,7 @@ def load_env(path: Path | None = None) -> dict:
 
 
 class LLM:
-    """One chat completion call, cached."""
+    """One chat completion call with optional response caching."""
 
     def __init__(
         self,
@@ -117,12 +117,9 @@ class LLM:
             valid_endpoint = False
         if not valid_endpoint:
             raise LLMError("LLM_BASE_URL must be an HTTPS URL without embedded credentials")
-        # On by default because the offline demo and the deployed site are
-        # served from this cache, and the recorded exchanges are the
-        # synthetic sandbox only. Writing model responses to disk is still
-        # the caller's decision to make, so LLM_CACHE=0 turns it off.
+        # Live prompts can contain private data, so scratch caching is opt-in.
         if use_cache is None:
-            use_cache = self.env.get("LLM_CACHE", "1") != "0"
+            use_cache = self.env.get("LLM_CACHE", "").strip() == "1"
         self.use_cache = use_cache
         # replay serves only what is already cached and never calls out. A miss
         # is an error rather than a stand-in answer: a demo that invented the
@@ -145,19 +142,19 @@ class LLM:
 
         key = self._key(body)
         cached = CACHE_DIR / f"{key}.json"
-        if self.use_cache:
-            # The committed fixtures first, then whatever this machine happens
-            # to have recorded.
-            for folder in (DEMO_CACHE, CACHE_DIR):
-                recorded = folder / f"{key}.json"
-                if recorded.exists():
-                    return json.loads(recorded.read_text(encoding="utf-8"))
+        # Shipped synthetic demo fixtures are safe to read even when caching is
+        # disabled; only the per-machine cache may contain live user data.
+        fixture = DEMO_CACHE / f"{key}.json"
+        if fixture.exists():
+            return json.loads(fixture.read_text(encoding="utf-8"))
+        if self.use_cache and cached.exists():
+            return json.loads(cached.read_text(encoding="utf-8"))
 
         if self.replay:
             raise LLMError(
-                "This demo has no model key, so it can only replay the request it "
-                "ships with. Press Run both without changing the request, or run it "
-                "locally with your own key to try others."
+                "This deployment is in recorded replay mode; only the bundled request "
+                "has a fixture. To run custom prompts, set LLM_API_KEY in the server "
+                "environment and make sure the daily call budget is available."
             )
 
         api_key = self.env.get("LLM_API_KEY")

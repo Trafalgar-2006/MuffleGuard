@@ -3,90 +3,139 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MuffleGuard Attack Lab</title>
+<meta name="theme-color" content="#10151c">
+<meta name="description" content="Compare an unguarded AI agent with MuffleGuard's provenance policy and content defenses.">
+<title>MuffleGuard | Attack Lab</title>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#128737;</text></svg>">
 </head>
 <body>
 
 <header class="bar">
-  <div class="brand">
-    <span class="mark" aria-hidden="true"></span>
-    <h1>MuffleGuard</h1>
-    <p>The same request, sent to an undefended agent and a guarded one.</p>
+  <div class="masthead">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div class="brand-copy">
+        <p class="brand-kicker">Security research / 01</p>
+        <h1>MuffleGuard <span>Attack Lab</span></h1>
+        <p>One request. Two agents. See where the data goes.</p>
+      </div>
+    </div>
+    <div class="run-mode" id="run-mode" role="status" aria-live="polite">
+      <span class="mode-light" aria-hidden="true"></span>
+      <span id="run-mode-label">Checking mode</span>
+    </div>
   </div>
 
-  <form class="controls" id="controls">
-    <label class="field">
-      <span>Request</span>
-      <input type="text" id="request" autocomplete="off" spellcheck="false"
-             aria-describedby="request-note">
-      <small id="request-note" hidden></small>
-      <button type="button" id="reset-request" hidden>Use the demo request</button>
-    </label>
-    <fieldset class="toggles">
-      <legend>Guard layers</legend>
-      <label><input type="checkbox" id="muffle" checked> Muffle injected text</label>
-      <label><input type="checkbox" id="detector"> Run the classifiers</label>
-    </fieldset>
-    <button type="submit" id="run">Run both</button>
-  </form>
+  <section class="request-panel" aria-labelledby="request-title">
+    <form class="controls" id="controls">
+      <div class="field">
+        <label class="field-title" id="request-title" for="request">Test request</label>
+        <textarea id="request" rows="2" autocomplete="off" spellcheck="false"
+                  aria-describedby="request-note"></textarea>
+        <span class="request-meta">
+          <small id="request-note" hidden></small>
+          <button type="button" id="reset-request" hidden>Restore demo request</button>
+        </span>
+      </div>
+      <fieldset class="toggles">
+        <legend>Guard layers</legend>
+        <label class="toggle"><input type="checkbox" id="muffle" checked><span class="toggle-track" aria-hidden="true"></span><span>Muffle hidden instructions</span></label>
+        <label class="toggle"><input type="checkbox" id="detector"><span class="toggle-track" aria-hidden="true"></span><span>Use classifiers</span></label>
+      </fieldset>
+      <button type="submit" id="run">Run both</button>
+    </form>
+  </section>
 </header>
 
-<main class="lab">
-  <section class="side" id="side-unguarded" aria-labelledby="h-unguarded">
-    <h2 id="h-unguarded">No guard</h2>
-    <ol class="trace" id="trace-unguarded" aria-live="polite"></ol>
-    <div class="outcome" id="outcome-unguarded"></div>
+<main>
+  <section class="comparison" aria-labelledby="comparison-title">
+    <div class="section-head">
+      <div>
+        <p class="section-index">Experiment / live trace</p>
+        <h2 id="comparison-title">Same request, different outcome.</h2>
+      </div>
+      <p class="run-status" id="run-status" role="status" aria-live="polite">Ready to run the comparison.</p>
+    </div>
+
+    <div class="lab">
+      <section class="side side-baseline" id="side-unguarded" aria-labelledby="h-unguarded">
+        <header class="side-head">
+          <div><span class="side-index">A / Baseline</span><h3 id="h-unguarded">No guard</h3></div>
+          <span class="side-state">Unprotected</span>
+        </header>
+        <ol class="trace" id="trace-unguarded" aria-live="polite" aria-relevant="additions text">
+          <li class="trace-empty">The agent's actions will appear here.</li>
+        </ol>
+        <div class="outcome" id="outcome-unguarded" aria-live="polite"></div>
+      </section>
+
+      <section class="side side-guarded" id="side-guarded" aria-labelledby="h-guarded">
+        <header class="side-head">
+          <div><span class="side-index">B / Protected</span><h3 id="h-guarded">MuffleGuard</h3></div>
+          <span class="side-state">Policy + selected layers</span>
+        </header>
+        <ol class="trace" id="trace-guarded" aria-live="polite" aria-relevant="additions text">
+          <li class="trace-empty">Guard decisions and their reasons will appear here.</li>
+        </ol>
+        <div class="outcome" id="outcome-guarded" aria-live="polite"></div>
+      </section>
+    </div>
+    <p class="empty" id="empty">Start with the supplied request, or enter a different one when running with a live model.</p>
   </section>
 
-  <section class="side" id="side-guarded" aria-labelledby="h-guarded">
-    <h2 id="h-guarded">MuffleGuard</h2>
-    <ol class="trace" id="trace-guarded" aria-live="polite"></ol>
-    <div class="outcome" id="outcome-guarded"></div>
+  <section class="score" id="score" aria-labelledby="h-score" hidden>
+    <div class="section-head score-head">
+      <div><p class="section-index">Recorded evaluation</p><h2 id="h-score">Measured, not improvised.</h2></div>
+      <p id="score-note"></p>
+    </div>
+    <div class="table-wrap" role="region" aria-label="Recorded evaluation results" tabindex="0">
+      <table id="score-table">
+        <thead><tr>
+          <th>Defence</th>
+          <th>Data reached the attacker</th>
+          <th>Agent attempted</th>
+          <th>Stopped when attempted</th>
+          <th>Clean tasks finished</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="scroll-note">On a narrow screen, scroll the table to compare every measure.</p>
+  </section>
+
+  <section class="audit" aria-labelledby="h-audit">
+    <div class="section-head audit-head">
+      <div><p class="section-index">Run integrity</p><h2 id="h-audit">Audit chain</h2></div>
+      <p id="audit-state" role="status" aria-live="polite">Run the comparison to inspect its decision log.</p>
+      <div class="audit-actions">
+        <button type="button" id="verify">Verify chain</button>
+        <button type="button" id="tamper" class="danger" hidden>Simulate tampering</button>
+      </div>
+    </div>
+    <div class="table-wrap" role="region" aria-label="Audit log entries" tabindex="0">
+      <table id="audit-table">
+        <thead><tr><th>#</th><th>Checkpoint</th><th>Decision</th><th>Follows</th><th>Hash</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </section>
 </main>
 
-<p class="empty" id="empty">Press <b>Run both</b>. One of these emails hides an instruction that nobody can see.</p>
-
-<section class="score" id="score" aria-labelledby="h-score" hidden>
-  <div class="score-head">
-    <h2 id="h-score">Measured</h2>
-    <p id="score-note"></p>
-  </div>
-  <div class="table-wrap">
-    <table id="score-table">
-      <thead><tr>
-        <th>Defence</th>
-        <th>Data reached the attacker</th>
-        <th>The agent tried</th>
-        <th>Stopped when it tried</th>
-        <th>Ordinary tasks finished</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</section>
-
-<section class="audit" aria-labelledby="h-audit">
-  <div class="audit-head">
-    <h2 id="h-audit">Audit log</h2>
-    <p id="audit-state">Every decision the guard made, each entry sealed with the hash of the one before.</p>
-    <div class="audit-actions">
-      <button type="button" id="verify">Check the chain</button>
-      <button type="button" id="tamper" class="danger">Edit an entry</button>
-    </div>
-  </div>
-  <div class="table-wrap">
-    <table id="audit-table">
-      <thead><tr><th>#</th><th>Checkpoint</th><th>Decision</th><th>Follows</th><th>Hash</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</section>
+<dialog class="passcode-dialog" id="passcode-dialog" aria-labelledby="passcode-title" aria-describedby="passcode-help">
+  <form id="passcode-form">
+    <p class="section-index">Protected demo</p>
+    <h2 id="passcode-title">Enter the passcode</h2>
+    <p id="passcode-help">The passcode is kept only for this browser session.</p>
+    <label class="field" for="passcode-input"><span>Demo passcode</span><input id="passcode-input" type="password" autocomplete="current-password" required></label>
+    <p class="dialog-error" id="passcode-error" role="alert" hidden></p>
+    <div class="dialog-actions"><button type="button" id="passcode-cancel">Cancel</button><button type="submit" class="primary">Unlock</button></div>
+  </form>
+</dialog>
 
 <footer>
   <span id="model-note"></span>
+  <span>Simulated tools. No real mailbox or files.</span>
   <a href="https://github.com/Trafalgar-2006/MuffleGuard">Source</a>
 </footer>
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from types import SimpleNamespace
 
@@ -39,10 +40,7 @@ def test_http_error_body_cannot_echo_the_api_key(monkeypatch):
 
 
 def test_response_caching_can_be_turned_off(monkeypatch, tmp_path):
-    """The cache is on by default: the offline demo is served from it, and the
-    recorded exchanges are the synthetic sandbox. Writing model responses to
-    disk is still the caller's call, so LLM_CACHE=0 disables it.
-    """
+    """LLM_CACHE=0 prevents live responses from being written to disk."""
     from sandbox import llm as llm_module
 
     monkeypatch.setattr(llm_module, "CACHE_DIR", tmp_path)
@@ -64,8 +62,8 @@ def test_response_caching_can_be_turned_off(monkeypatch, tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
-def test_the_cache_is_on_by_default(monkeypatch, tmp_path):
-    """The offline demo depends on it, so the default must not drift off."""
+@pytest.mark.parametrize("cache_setting", [None, "", "0", "false"])
+def test_response_caching_requires_explicit_opt_in(monkeypatch, tmp_path, cache_setting):
     from sandbox import llm as llm_module
 
     monkeypatch.setattr(llm_module, "CACHE_DIR", tmp_path)
@@ -77,11 +75,64 @@ def test_the_cache_is_on_by_default(monkeypatch, tmp_path):
             json=lambda: {"choices": [{"message": {"content": "ok"}}]},
         )),
     )
-    llm = LLM(env={"LLM_API_KEY": "test-key", "LLM_BASE_URL": "https://provider.example/api"})
+    env = {"LLM_API_KEY": "test-key", "LLM_BASE_URL": "https://provider.example/api"}
+    if cache_setting is not None:
+        env["LLM_CACHE"] = cache_setting
+    llm = LLM(env=env)
 
     llm.complete([Message("user", "hello")])
 
-    assert list(tmp_path.iterdir()), "a response should have been recorded"
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_response_caching_can_be_opted_in(monkeypatch, tmp_path):
+    from sandbox import llm as llm_module
+
+    monkeypatch.setattr(llm_module, "CACHE_DIR", tmp_path)
+    monkeypatch.setitem(
+        sys.modules,
+        "httpx",
+        SimpleNamespace(post=lambda *args, **kwargs: SimpleNamespace(
+            status_code=200,
+            json=lambda: {"choices": [{"message": {"content": "ok"}}]},
+        )),
+    )
+    llm = LLM(env={
+        "LLM_API_KEY": "test-key",
+        "LLM_BASE_URL": "https://provider.example/api",
+        "LLM_CACHE": "1",
+    })
+
+    llm.complete([Message("user", "hello")])
+
+    assert list(tmp_path.iterdir())
+
+
+def test_replay_reads_demo_fixture_when_scratch_caching_is_off(monkeypatch, tmp_path):
+    from sandbox import llm as llm_module
+
+    demo_cache = tmp_path / "demo"
+    scratch_cache = tmp_path / "scratch"
+    demo_cache.mkdir()
+    monkeypatch.setattr(llm_module, "DEMO_CACHE", demo_cache)
+    monkeypatch.setattr(llm_module, "CACHE_DIR", scratch_cache)
+    llm = LLM(env={"LLM_CACHE": "0"}, replay=True)
+    messages = [Message("user", "the supplied demo request")]
+    body = {
+        "model": llm.model,
+        "messages": [message.wire() for message in messages],
+        "temperature": 0.0,
+    }
+    expected = {"choices": [{"message": {"content": "synthetic fixture"}}]}
+    (demo_cache / f"{llm._key(body)}.json").write_text(json.dumps(expected), encoding="utf-8")
+    monkeypatch.setitem(
+        sys.modules,
+        "httpx",
+        SimpleNamespace(post=lambda *args, **kwargs: pytest.fail("replay must not call the provider")),
+    )
+
+    assert llm.complete(messages) == expected
+    assert not scratch_cache.exists()
 
 
 def test_the_committed_fixtures_are_actually_committed():

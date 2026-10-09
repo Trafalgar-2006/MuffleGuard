@@ -67,6 +67,22 @@ The built-in request uses a fixed synthetic response replay, so the comparison
 works offline. Custom requests use the configured provider when a key and daily
 call allowance are available.
 
+### Enable custom prompts on the deployed Attack Lab
+
+The public demo starts in recorded replay mode until its server has a provider
+key. In Railway, open the service's **Variables** settings and add `LLM_API_KEY`
+as a secret. The default provider is OpenRouter; to use another OpenAI-compatible
+provider, also set `LLM_BASE_URL` and `LLM_MODEL`. Keep `DEMO_DAILY_RUNS` unset
+for its default allowance of 200 calls, or set it to at least `16` so both sides
+of a comparison can each use their eight-call ceiling. Redeploy after changing
+variables. The page should then show **Live model available**, and custom
+requests will be sent to that model.
+
+Never put a provider key in the browser, this repository, or a committed
+`.env` file. Prompts go to the configured model provider, while the inbox, file,
+and outbound tools remain a simulated in-memory world; this demo cannot inspect
+or delete real files.
+
 Sentence classifiers are off by default. Pass `--detector` after placing both
 ONNX model snapshots in the local Hugging Face cache; MuffleGuard does not
 download weights automatically. See [REVIEW.md](REVIEW.md) for setup. BPE
@@ -133,7 +149,8 @@ that needs credit on the configured provider.
 The guard checks calls from the model to tools. The configured model provider
 still receives the user's request and each tool result sent back to the model;
 only use data that provider is approved to process. The general `LLM` client does
-not cache responses by default. `hero_attack.py` opts into its local response
+not cache responses by default; set `LLM_CACHE=1` only when you want live
+responses written to local disk. `hero_attack.py` opts into its local response
 cache for the synthetic demo; `--no-cache` disables it. Cache responses may
 contain user data, so keep live data out of the demo cache and out of Git.
 

@@ -8,7 +8,7 @@
 
 The original findings below describe the pre-fix snapshot. Findings 1-5 and 8 are fixed with regression tests. Finding 6 was re-audited: unused FastAPI/Starlette dependencies were removed, pytest is pinned to 9.0.3, `tokenizers` was moved from vulnerable 0.23.2 to 0.22.2, and BPE merge data is checked before native parsing. Finding 7 is mitigated by a persistent audit-path option, while in-memory remains the demo default.
 
-This pass also fixed a secret split across outbound fields, short private excerpts from longer records, mutable approval arguments, cleartext LLM endpoints, HTTP error-body reflection, response caching by default, and raw muffled content being copied into the audit log. The fresh review found three gaps: split-secret scanning depended on field order, percent escapes were decoded only once, and different IPv6 hosts collapsed to the same provenance value. Those are fixed, malformed provider responses now fail safely, and detector, URL-component, audit-privacy, and host-parsing regression coverage was added. The current suite reports **129 passed**. A fresh `pip-audit -r requirements.txt -r requirements-dev.txt` reports **no known vulnerabilities**.
+This earlier pass also fixed a secret split across outbound fields, short private excerpts from longer records, mutable approval arguments, cleartext LLM endpoints, HTTP error-body reflection, response caching by default, and raw muffled content being copied into the audit log. The fresh review found three gaps: split-secret scanning depended on field order, percent escapes were decoded only once, and different IPv6 hosts collapsed to the same provenance value. Those are fixed, malformed provider responses now fail safely, and detector, URL-component, audit-privacy, and host-parsing regression coverage was added. The suite reported **129 passed at that earlier snapshot**; the current Phase 3/4 count appears below. A `pip-audit` run at that stage reported **no known vulnerabilities**.
 
 ### Findings added in this recheck
 
@@ -187,3 +187,30 @@ The public deployment was not changed by this local code review.
 4. Make detector readiness explicit and align setup docs with actual loading behavior.
 5. Give audit logs a persistent production configuration and explicit connection lifecycle; decide whether truncation needs an external checkpoint.
 6. Add regression tests for each reproduction and offline coverage for the model/network adapters before changing implementation.
+
+## Phase 3/4 Revalidation (2026-10-09)
+
+**Base:** `origin/main` at `27d71c6`; validation and fixes are on `codex/phase34-e2e-hardening`.
+
+### Findings fixed
+
+1. **Live model responses were cached by default.** `sandbox/llm.py` contradicted the README and privacy notes: a live prompt and response could be written under `.llm_cache` unless `LLM_CACHE=0` was set. Scratch caching is now off by default and only the exact `LLM_CACHE=1` opts in; absent, blank, `0`, and `false` stay off. The committed synthetic demo fixtures still replay with scratch caching disabled. Tests first reproduced both the unintended write and the fixture replay failure.
+2. **The browser script in the local Phase 3/4 UI changes was incomplete.** `node --check` failed on stray fragments in `web/static/app.js`; the passcode dialog, NDJSON stream completion, scorecard rendering, and run status handlers were also inconsistent. Repaired the UI flow, added a CI JavaScript syntax check, and exercised replay, passcode retry, mode labels, and form semantics with Playwright.
+3. **The secret gate skipped whole fixture and test files.** A credential placed anywhere in `tests/test_web.py` would evade CI. The gate now scans every tracked file and exempts only exact per-file synthetic values. Regression tests prove that a new key-shaped value (including one containing `EXAMPLE`) and a card-shaped value in a previously skipped test file fail the scan.
+
+### Verification
+
+- `python -m pytest`: **211 passed**.
+- Playwright 1.63 with Microsoft Edge: replay shows the expected unguarded breach, guarded hold, and intact audit chain; malicious HTML input creates no image or script execution; API approval override returns `422`, oversized JSON returns `413`, disabled tampering returns `404`, and request bursts reach `429`. The live-mode label, recorded-demo note, restore-button semantics, and browser passcode flow also passed. No browser page errors.
+- Passcode E2E: a wrong passcode is rejected and can be retried; the correct passcode unlocks the page; unauthenticated and authenticated API calls return `401` and `200`, with no-store and security headers present. No browser page errors.
+- Deterministic adversarial evaluation: **216 runs**, no errors; policy-only stopped **64/64** attacker attempts, and the full defense stopped **32/32** attempts after muffling removed the rest.
+- Secret gate: all tracked files scanned, no unexpected credential-shaped strings.
+- `pip-audit` reported no known advisories for the pinned requirements or the installed environment including transitive packages. The audit environment's old bootstrap `pip` and `setuptools` were upgraded locally; neither is an application dependency or tracked change.
+- `node --check web/static/app.js` passes and now runs in CI.
+
+### Remaining limits
+
+- Playwright E2E was run locally and is not yet part of CI; CI checks JavaScript syntax but does not launch a browser.
+- No real provider call or ONNX snapshot was used. The adversarial evaluation is deterministic, the tool world is in memory, and the model provider still receives prompts and tool results in live mode.
+- The dependency requirements have no lockfile, so the transitive graph can change between installs even though the current audit is clean.
+- The audit log, per-process budgets, and request limits still need an external checkpoint/shared store for stronger durability or multi-worker deployments. URL and exfiltration checks remain heuristics as described above.
