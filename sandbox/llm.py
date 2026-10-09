@@ -4,9 +4,8 @@ Any provider that speaks the OpenAI chat API works: OpenRouter, OpenAI, Groq.
 Only the base URL and the model change, which is why they live in `.env` and
 not in the code.
 
-Every response is cached by the hash of the request, so a red-team run of
-several hundred attacks is paid for once and then replays for free, and a demo
-plays back identically with the Wi-Fi off.
+When enabled, responses are cached by the hash of the request, so the demo can
+replay its synthetic runs with the Wi-Fi off. Caching is opt-in for normal use.
 """
 
 from __future__ import annotations
@@ -16,6 +15,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".llm_cache"
 
@@ -64,10 +64,24 @@ def load_env(path: Path | None = None) -> dict:
 class LLM:
     """One chat completion call, cached."""
 
-    def __init__(self, model: str | None = None, env: dict | None = None, use_cache: bool = True):
+    def __init__(self, model: str | None = None, env: dict | None = None, use_cache: bool = False):
         self.env = env or load_env()
         self.model = model or self.env.get("LLM_MODEL", "openai/gpt-4o-mini")
         self.base_url = self.env.get("LLM_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+        try:
+            endpoint = urlsplit(self.base_url)
+            valid_endpoint = (
+                endpoint.scheme == "https"
+                and bool(endpoint.hostname)
+                and endpoint.username is None
+                and endpoint.password is None
+                and not endpoint.query
+                and not endpoint.fragment
+            )
+        except ValueError:
+            valid_endpoint = False
+        if not valid_endpoint:
+            raise LLMError("LLM_BASE_URL must be an HTTPS URL without embedded credentials")
         self.use_cache = use_cache
         self.calls = 0
         self.cache_hits = 0
@@ -104,8 +118,8 @@ class LLM:
             timeout=120,
         )
         if response.status_code != 200:
-            # The body can echo the request; never include the key in the error.
-            raise LLMError(f"{self.model}: HTTP {response.status_code} {response.text[:200]}")
+            # A provider error body can echo credentials or private prompt data.
+            raise LLMError(f"{self.model}: HTTP {response.status_code}")
         data = response.json()
         self.calls += 1
         if self.use_cache:
@@ -115,4 +129,16 @@ class LLM:
 
     @staticmethod
     def message_of(response: dict) -> dict:
-        return response["choices"][0]["message"]
+        choices = response.get("choices") if isinstance(response, dict) else None
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+            raise LLMError("provider returned an invalid chat response")
+        message = choices[0].get("message")
+        if not isinstance(message, dict):
+            raise LLMError("provider returned an invalid chat response")
+        content = message.get("content")
+        tool_calls = message.get("tool_calls")
+        if content is not None and not isinstance(content, str):
+            raise LLMError("provider returned an invalid chat response")
+        if tool_calls is not None and not isinstance(tool_calls, list):
+            raise LLMError("provider returned an invalid chat response")
+        return message

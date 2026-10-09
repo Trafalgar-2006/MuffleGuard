@@ -18,9 +18,12 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+from itertools import combinations, permutations
+from urllib.parse import unquote
 
 from .detectors.secrets import Finding, scan
 from .normalize import emails_in, host_of, mixed_script, normalize, urls_in
@@ -49,8 +52,33 @@ class ToolSpec:
     reads_private: bool = False  # returns the user's own secrets or files
     outbound: bool = False  # can move data or effects out of the sandbox
     target_args: tuple[str, ...] = ()  # args naming who or what is acted on
-    payload_args: tuple[str, ...] = ()  # args carrying content out
     dangerous: bool = False  # destructive even inside the sandbox
+    argument_types: dict[str, str] = field(default_factory=dict)
+    required_args: tuple[str, ...] = ()
+
+    def validate_args(self, args: object) -> str | None:
+        """Reject malformed calls before any policy rule or tool can use them."""
+        if not isinstance(args, dict) or any(not isinstance(key, str) for key in args):
+            return "arguments must be an object with string keys"
+
+        keys = set(args)
+        allowed = set(self.argument_types)
+        errors = []
+        missing = set(self.required_args) - keys
+        extra = keys - allowed
+        if missing:
+            errors.append("missing fields: " + ", ".join(sorted(missing)))
+        if extra:
+            errors.append("unknown fields: " + ", ".join(sorted(extra)))
+
+        expected_types = {"string": str, "integer": int, "boolean": bool}
+        for key in keys & allowed:
+            expected = self.argument_types[key]
+            if expected not in expected_types:
+                errors.append(f"unsupported schema type for {key}")
+            elif type(args[key]) is not expected_types[expected]:
+                errors.append(f"{key} must be {expected}")
+        return "; ".join(errors) or None
 
 
 @dataclass(frozen=True)
@@ -133,11 +161,25 @@ class PolicyEngine:
                 ),
             )
 
+        invalid = spec.validate_args(args)
+        if invalid:
+            return Verdict(
+                Decision.BLOCK,
+                (
+                    Reason(
+                        "R0-INVALID-TOOL-ARGS",
+                        Decision.BLOCK,
+                        f"The arguments for {name!r} do not match its declared schema: {invalid}.",
+                        {"tool": name},
+                    ),
+                ),
+            )
+
         reasons: list[Reason] = []
         reasons += self._dangerous_commands(spec, args)
         if spec.outbound:
             reasons += self._target_provenance(spec, args, ledger)
-            reasons += self._egress(spec, args, ledger)
+            reasons += self._egress(args, ledger)
 
         decision = max((r.decision for r in reasons), key=lambda d: d.severity, default=Decision.ALLOW)
         return Verdict(decision, tuple(reasons))
@@ -241,24 +283,29 @@ class PolicyEngine:
                     )
         return reasons
 
-    def _egress(self, spec: ToolSpec, args: dict, ledger: Ledger) -> list[Reason]:
-        """Is private data leaving in the payload?"""
+    def _egress(self, args: dict, ledger: Ledger) -> list[Reason]:
+        """Is private data leaving through any outbound argument?"""
         reasons: list[Reason] = []
-        payload = "\n".join(
-            str(args[k]) for k in spec.payload_args if isinstance(args.get(k), (str, int, float))
-        )
-        if not payload.strip():
-            return reasons
-
-        # Scan what the payload *means*, not only how it is written. A base64
-        # blob carries the same credential past a pattern match, so decode first
-        # and judge the result as well.
-        # Also judge the fields run together, so a credential split across the
-        # subject and the body is seen whole.
-        joined = "".join(
-            str(args[k]) for k in spec.payload_args if isinstance(args.get(k), (str, int, float))
-        )
-        payload = "\n".join([payload, joined, *_decoded_blobs(payload)])
+        # Serialize every outbound argument recursively. This includes URL
+        # components and structured values, even if a future tool schema adds
+        # fields beyond today's strings.
+        payload = json.dumps(args, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        decoded_payloads = [payload]
+        for _ in range(3):
+            decoded = unquote(decoded_payloads[-1])
+            if decoded == decoded_payloads[-1]:
+                break
+            decoded_payloads.append(decoded)
+        values = [str(value) for value in args.values()]
+        # shortcut: 3 fields max, use a bounded matcher before adding wider schemas.
+        joined = [
+            "\n" + "".join(order) + "\n"
+            for size in range(2, len(values) + 1)
+            for group in combinations(values, size)
+            for order in permutations(group)
+        ]
+        blobs = [blob for text in decoded_payloads for blob in _decoded_blobs(text)]
+        payload = "\n".join((*decoded_payloads, *joined, *blobs))
 
         findings: list[Finding] = self.scan(payload)
         if findings:
@@ -320,8 +367,8 @@ def _decoded_blobs(payload: str) -> list[str]:
 def _targets_in(raw: str) -> list[tuple[str, str]]:
     """The addressable things inside an argument: addresses, hosts, else itself.
 
-    A URL is judged on its host, because the path is chosen by whoever controls
-    the host anyway.
+    Provenance is judged on the host; egress scanning separately inspects the
+    complete URL, including user-info, path, query, and fragment.
     """
     targets = [("email", e) for e in emails_in(raw)]
     targets += [("host", host_of(u)) for u in urls_in(raw)]
@@ -343,21 +390,21 @@ def _private_overlap(payload: str, ledger: Ledger, window: int = 6) -> tuple | N
     Comparing runs of words rather than whole blocks means a leak still shows
     when the model paraphrases around it or sends only the interesting line.
     """
-    payload_tokens = [t for t in normalize(payload).split() if t not in _STOP_TOKENS]
+    payload_tokens = [t for t in re.findall(r"\w+", normalize(payload)) if t not in _STOP_TOKENS]
     if not payload_tokens:
         return None
     payload_text = " ".join(payload_tokens)
 
     for record in ledger.of_source(Source.PRIVATE):
-        tokens = [t for t in record.normalized.split() if t not in _STOP_TOKENS]
+        tokens = [t for t in re.findall(r"\w+", record.normalized) if t not in _STOP_TOKENS]
         if not tokens:
             continue
         # Compare the two stripped token streams. Matching the stripped record
         # against the raw payload would miss a quote the model rewrapped with
         # different filler words, which is most of them.
-        size = min(window, len(tokens))
-        for i in range(len(tokens) - size + 1):
-            run = " ".join(tokens[i : i + size])
-            if run in payload_text:
-                return record, run
+        for size in range(min(window, len(tokens)), 2, -1):
+            for i in range(len(tokens) - size + 1):
+                run = " ".join(tokens[i : i + size])
+                if run in payload_text:
+                    return record, run
     return None

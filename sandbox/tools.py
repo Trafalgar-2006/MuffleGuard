@@ -13,101 +13,71 @@ from muffleguard.policy import ToolSpec
 from .world import World
 
 SPECS: dict[str, ToolSpec] = {
-    "inbox_list": ToolSpec("inbox_list", reads_untrusted=True),
-    "inbox_read": ToolSpec("inbox_read", reads_untrusted=True),
-    "web_fetch": ToolSpec("web_fetch", reads_untrusted=True, target_args=("url",)),
-    "files_read": ToolSpec("files_read", reads_private=True),
+    "inbox_list": ToolSpec(
+        "inbox_list", reads_untrusted=True, argument_types={"unread_only": "boolean"}
+    ),
+    "inbox_read": ToolSpec(
+        "inbox_read", reads_untrusted=True, argument_types={"email_id": "integer"},
+        required_args=("email_id",),
+    ),
+    "web_fetch": ToolSpec(
+        "web_fetch", reads_untrusted=True, target_args=("url",),
+        argument_types={"url": "string"}, required_args=("url",),
+    ),
+    "files_read": ToolSpec(
+        "files_read", reads_private=True, argument_types={"path": "string"},
+        required_args=("path",),
+    ),
     "email_send": ToolSpec(
         "email_send",
         outbound=True,
         target_args=("to",),
-        payload_args=("subject", "body"),
+        argument_types={"to": "string", "subject": "string", "body": "string"},
+        required_args=("to", "subject", "body"),
     ),
     "http_post": ToolSpec(
-        "http_post", outbound=True, target_args=("url",), payload_args=("data",)
+        "http_post", outbound=True, target_args=("url",),
+        argument_types={"url": "string", "data": "string"}, required_args=("url", "data"),
     ),
-    "shell_run": ToolSpec("shell_run", outbound=True, dangerous=True, target_args=("cmd",)),
+    "shell_run": ToolSpec(
+        "shell_run", outbound=True, dangerous=True, target_args=("cmd",),
+        argument_types={"cmd": "string"}, required_args=("cmd",),
+    ),
 }
 
-# What the model is told. Hashed at startup so a change is detectable (P4).
+# What the model is told is generated from the same argument declarations that
+# the policy and adapter validate. shell_run stays private to the sandbox.
+_DESCRIPTIONS = {
+    "inbox_list": "List emails in the user's inbox.",
+    "inbox_read": "Read the full body of one email by its id.",
+    "files_read": "Read one of the user's private files by name.",
+    "web_fetch": "Fetch the text of a web page.",
+    "email_send": "Send an email on the user's behalf.",
+    "http_post": "Post data to a URL.",
+}
 SCHEMA: list[dict] = [
     {
         "type": "function",
         "function": {
-            "name": "inbox_list",
-            "description": "List emails in the user's inbox.",
-            "parameters": {
-                "type": "object",
-                "properties": {"unread_only": {"type": "boolean"}},
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "inbox_read",
-            "description": "Read the full body of one email by its id.",
-            "parameters": {
-                "type": "object",
-                "properties": {"email_id": {"type": "integer"}},
-                "required": ["email_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "files_read",
-            "description": "Read one of the user's private files by name.",
-            "parameters": {
-                "type": "object",
-                "properties": {"path": {"type": "string"}},
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "web_fetch",
-            "description": "Fetch the text of a web page.",
-            "parameters": {
-                "type": "object",
-                "properties": {"url": {"type": "string"}},
-                "required": ["url"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "email_send",
-            "description": "Send an email on the user's behalf.",
+            "name": name,
+            "description": description,
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "to": {"type": "string"},
-                    "subject": {"type": "string"},
-                    "body": {"type": "string"},
+                    key: {"type": value} for key, value in SPECS[name].argument_types.items()
                 },
-                "required": ["to", "subject", "body"],
+                "required": list(SPECS[name].required_args),
+                "additionalProperties": False,
             },
         },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "http_post",
-            "description": "Post data to a URL.",
-            "parameters": {
-                "type": "object",
-                "properties": {"url": {"type": "string"}, "data": {"type": "string"}},
-                "required": ["url", "data"],
-            },
-        },
-    },
+    }
+    for name, description in _DESCRIPTIONS.items()
 ]
+
+
+def validate_tool_args(name: str, args: object) -> str | None:
+    spec = SPECS.get(name)
+    return spec.validate_args(args) if spec is not None else f"unknown tool {name!r}"
 
 
 def run_tool(world: World, name: str, args: dict) -> tuple[str, str]:
@@ -116,6 +86,10 @@ def run_tool(world: World, name: str, args: dict) -> tuple[str, str]:
     Returns the result text and a label naming where it came from, which is what
     the ledger and every block reason quote back to the user.
     """
+    invalid = validate_tool_args(name, args)
+    if invalid:
+        return f"Invalid arguments: {invalid}.", "the tool runner"
+
     if name == "inbox_list":
         emails = [e for e in world.emails if e.unread or not args.get("unread_only")]
         listing = "\n".join(e.header for e in emails)

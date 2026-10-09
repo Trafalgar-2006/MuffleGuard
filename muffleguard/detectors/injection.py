@@ -54,6 +54,57 @@ def _snapshot(repo_id: str) -> Path | None:
     return snaps[0] if snaps else None
 
 
+def _tokenizer_file_is_safe(path: Path) -> bool:
+    """Reject malformed BPE merge pairs before the native parser sees them."""
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    model = config.get("model") if isinstance(config, dict) else None
+    if not isinstance(model, dict):
+        return False
+    if model.get("type") != "BPE":
+        return True
+
+    vocab, merges = model.get("vocab"), model.get("merges")
+    prefix = model.get("continuing_subword_prefix")
+    if prefix is None:
+        prefix = ""
+    if not isinstance(vocab, dict) or not isinstance(merges, list) or not isinstance(prefix, str):
+        return False
+    if not all(isinstance(token, str) for token in vocab):
+        return False
+
+    byte_vocab = {token: len(token.encode("utf-8")) for token in vocab}
+    max_token_len = max(byte_vocab.values(), default=0)
+    prefix_len = len(prefix.encode("utf-8"))
+    for merge in merges:
+        if isinstance(merge, str):
+            parts = merge.split(" ", 1)
+            if len(parts) != 2:
+                return False
+            left, right = parts
+        elif isinstance(merge, list) and len(merge) == 2:
+            left, right = merge
+        else:
+            return False
+        if not isinstance(left, str) or not isinstance(right, str):
+            return False
+        if left not in byte_vocab or right not in byte_vocab:
+            return False
+
+        right_bytes = right.encode("utf-8")
+        if prefix_len > len(right_bytes):
+            return False
+        try:
+            suffix = right_bytes[prefix_len:].decode("utf-8")
+        except UnicodeDecodeError:
+            return False
+        if byte_vocab[left] + len(suffix.encode("utf-8")) > max_token_len:
+            return False
+    return True
+
+
 def sentences(text: str) -> list[tuple[str, int, int]]:
     """Split into sentences, keeping each one's offsets in the original text."""
     out, pos = [], 0
@@ -93,6 +144,8 @@ class OnnxClassifier:
         ]
         onnx_path = next((p for p in candidates if p.exists()), None)
         if onnx_path is None or not tokenizer_path.exists():
+            return False
+        if not _tokenizer_file_is_safe(tokenizer_path):
             return False
         try:
             import onnxruntime
@@ -194,7 +247,8 @@ class InjectionDetector:
         self.max_sentences = max_sentences
 
     def available(self) -> bool:
-        return any(_classifier(m).load() for m in self.models)
+        """Whether every configured classifier has local weights and runtime support."""
+        return bool(self.models) and all(_classifier(m).load() for m in self.models)
 
     def scan(self, text: str) -> list[Span]:
         """Every sentence either classifier judges to be an injection.

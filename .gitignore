@@ -5,6 +5,7 @@
 __pycache__/
 .pytest_cache/
 .hypothesis/
+.llm_cache/
 *.db
 
 .venv/

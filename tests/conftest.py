@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,10 @@ def world() -> World:
 
 
 @pytest.fixture
-def guard() -> Guard:
+def guard() -> Generator[Guard, None, None]:
     """A guard with the detectors off: the policy engine alone."""
-    return Guard(tools=SPECS, detector=None)
+    guard = Guard(tools=SPECS, detector=None)
+    try:
+        yield guard
+    finally:
+        guard.close()

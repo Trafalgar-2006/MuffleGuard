@@ -12,17 +12,29 @@ python -m venv .venv
 .venv/Scripts/python -m pip install -r requirements-dev.txt    # Linux/macOS: .venv/bin/python
 ```
 
-First run downloads about 1.4 GB of models from Hugging Face. Everything except
-the two detector checks below works without them.
+Detector mode needs both classifier snapshots in the local Hugging Face cache;
+the code does not download them. To populate the cache once, install the CLI and
+download both repositories:
+
+```bash
+.venv/Scripts/python -m pip install huggingface_hub
+.venv/Scripts/hf download protectai/deberta-v3-base-prompt-injection-v2
+.venv/Scripts/hf download Horizon-Labs/prompt-injection-guard-small
+```
+
+On Linux or macOS, use `.venv/bin/` in place of `.venv/Scripts/`.
+
+Without both snapshots, `--detector` exits before contacting the model API.
+Everything else works without the classifier weights.
 
 ## What to run
 
 | # | Command | What should happen |
 | --- | --- | --- |
-| 1 | `.venv/Scripts/python -m pytest` | 93 passed, well under a minute |
+| 1 | `.venv/Scripts/python -m pytest` | 129 passed, well under a minute |
 | 2 | `.venv/Scripts/python tools/hero_attack.py --no-muffle` | `GATE: PASS`. Undefended leaks, defended does not |
 | 3 | `.venv/Scripts/python tools/hero_attack.py` | Same verdict, but the attack is muffled before the model sees it |
-| 4 | `.venv/Scripts/python tools/hero_attack.py --detector` | Same, with the classifiers on. Slower: the models load |
+| 4 | `.venv/Scripts/python tools/hero_attack.py --detector` | Same, with both classifiers loaded. Exits early if either is unavailable |
 
 In run 2, the important line is the block reason:
 
@@ -60,13 +72,29 @@ These are deliberate, and each is written down in the README or asserted in
 
 - **An address the user pastes themselves is allowed.** The guard answers "who
   chose this". If the user typed it, they did.
-- **A redirect through a host the user named is allowed.** The host passes
-  provenance; where it forwards to is invisible to us.
+- **URL provenance checks the host name only.** Scheme, port, path, DNS result,
+  and redirect destination need separate controls in a real network adapter.
 - **"Please ignore my last email" is flagged as an injection.** Thresholds are
   untuned until the evaluation phase. Real false positives found in run 3 or 4
   are still worth reporting, with the text.
-- **The audit log is tamper-evident, not tamper-proof.** Anyone who can write
-  the file can recompute the whole chain. Needs a signing key we do not have.
+- **The egress scan is heuristic.** It blocks recognized secret formats and
+  copied runs of at least three meaningful words, not every encoding or
+  paraphrase.
+- **Detector model files remain a supply-chain input.** BPE merges are checked
+  against the known native-loader panic cases, but tokenizer/model files are not
+  pinned to immutable revisions or checked against signed hashes.
+- **The model provider sees request and tool-result text.** The guard controls
+  tool actions; it does not prevent data from being sent to the configured
+  provider. The demo opts into a local response cache for synthetic data; keep
+  real user data out of that cache and out of Git.
+- **The tools use an in-memory fake world.** Replacing a fake tool with real
+  mail, file or HTTP access needs separate authorization and SSRF protections.
+- **The audit log is tamper-evident, not tamper-proof.** Its recorded head
+  detects row deletion while intact. Anyone who can rewrite the database can
+  alter both chain and head; that needs an external checkpoint or signing key.
+- **Persistent audit logs can contain identifying metadata.** They omit full
+  tool results and muffled content, but reason text and source labels may include
+  recipients or file names. Restrict access and set retention.
 - **An unknown recipient asks rather than blocks.** Unattended runs deny by
   default, so nothing is sent without a person.
 - **Detectors take 129-830 ms per email.** Being measured properly later. The

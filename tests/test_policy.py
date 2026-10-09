@@ -9,12 +9,26 @@ from muffleguard.trace import Ledger, Source
 
 TOOLS = {
     "email_send": ToolSpec(
-        "email_send", outbound=True, target_args=("to",), payload_args=("subject", "body")
+        "email_send", outbound=True, target_args=("to",),
+        argument_types={"to": "string", "subject": "string", "body": "string"},
+        required_args=("to", "subject", "body"),
     ),
-    "http_post": ToolSpec("http_post", outbound=True, target_args=("url",), payload_args=("data",)),
-    "shell_run": ToolSpec("shell_run", outbound=True, dangerous=True, target_args=("cmd",)),
-    "inbox_read": ToolSpec("inbox_read", reads_untrusted=True),
-    "files_read": ToolSpec("files_read", reads_private=True),
+    "http_post": ToolSpec(
+        "http_post", outbound=True, target_args=("url",),
+        argument_types={"url": "string", "data": "string"}, required_args=("url", "data"),
+    ),
+    "shell_run": ToolSpec(
+        "shell_run", outbound=True, dangerous=True, target_args=("cmd",),
+        argument_types={"cmd": "string"}, required_args=("cmd",),
+    ),
+    "inbox_read": ToolSpec(
+        "inbox_read", reads_untrusted=True, argument_types={"email_id": "integer"},
+        required_args=("email_id",),
+    ),
+    "files_read": ToolSpec(
+        "files_read", reads_private=True, argument_types={"path": "string"},
+        required_args=("path",),
+    ),
 }
 
 

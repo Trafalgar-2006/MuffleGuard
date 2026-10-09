@@ -18,11 +18,11 @@ import unicodedata
 
 # Characters that carry no visible mark but survive a copy-paste, so they are a
 # standard way to hide instructions inside otherwise innocent text.
-ZERO_WIDTH = "​‌‍⁠﻿"
-BIDI = "‪‫‬‭‮⁦⁧⁨⁩"
+ZERO_WIDTH = "\u200b\u200c\u200d\u2060\ufeff"
+BIDI = "\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
 # Unicode Tag block: an invisible copy of ASCII, used to smuggle prompts.
 TAGS = "".join(chr(c) for c in range(0xE0000, 0xE0080))
-INVISIBLE = ZERO_WIDTH + BIDI + TAGS + "­"
+INVISIBLE = ZERO_WIDTH + BIDI + TAGS + "\u00ad"
 
 _INVISIBLE_RE = re.compile(f"[{re.escape(INVISIBLE)}]")
 _WS_RE = re.compile(r"\s+")
@@ -112,7 +112,10 @@ def host_of(url: str) -> str:
     the authority the browser would use.
     """
     rest = url.split("://", 1)[-1]
-    authority = re.split(r"[/?#]", rest, 1)[0]
+    authority = re.split(r"[/?#]", rest, maxsplit=1)[0]
     if "@" in authority:  # https://user:pass@real-looking-host@evil.example
         authority = authority.rsplit("@", 1)[1]
-    return authority.split(":")[0].casefold()
+    if authority.startswith("["):
+        closing = authority.find("]")
+        return authority[1:closing].casefold() if closing != -1 else authority.casefold()
+    return authority.split(":", 1)[0].casefold()
