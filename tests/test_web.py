@@ -248,3 +248,28 @@ def test_every_setting_can_be_set_from_the_environment(monkeypatch):
     assert gated.get(
         "/api/config", headers={"X-Demo-Passcode": "from-the-environment"}
     ).status_code == 200
+
+
+def test_a_key_in_the_environment_turns_replay_off(monkeypatch):
+    """Replay is for having nothing to call, not for having a key and refusing.
+
+    Hardcoding it on meant a machine with a working key still answered every
+    request but the shipped one with "no cached response".
+    """
+    monkeypatch.setenv("LLM_API_KEY", "sk-test-not-used-offline")
+    assert TestClient(create_app(passcode="")).get("/api/config").json()["replay_only"] is False
+
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    import sandbox.llm as llm
+
+    monkeypatch.setattr(llm, "load_env", lambda path=None: {})
+    import web.app as web_app
+
+    monkeypatch.setattr(web_app, "load_env", lambda path=None: {})
+    assert TestClient(create_app(passcode="")).get("/api/config").json()["replay_only"] is True
+
+
+def test_the_replay_message_says_what_to_do(client):
+    """The page shows this verbatim, so it has to be an instruction."""
+    done = run(client, guarded=False, request="a request nobody has cached")[-1]
+    assert "Run both without changing the request" in done["error"]

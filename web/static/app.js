@@ -244,6 +244,11 @@ async function main() {
   }
 
   $("request").value = config.request || "";
+  if (config.replay_only) {
+    const note = $("request-note");
+    note.hidden = false;
+    note.textContent = "This demo replays a recorded run, so only this request works here. Run it locally with a model key to try your own.";
+  }
   $("model-note").textContent = `Agent model: ${config.model}`;
   $("tamper").hidden = !config.tamper_enabled;
 

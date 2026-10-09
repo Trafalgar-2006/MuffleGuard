@@ -118,8 +118,9 @@ class LLM:
 
         if self.replay:
             raise LLMError(
-                "no cached response for this request. Set LLM_API_KEY to run it live, "
-                "or use the request the demo ships with."
+                "This demo has no model key, so it can only replay the request it "
+                "ships with. Press Run both without changing the request, or run it "
+                "locally with your own key to try others."
             )
 
         api_key = self.env.get("LLM_API_KEY")

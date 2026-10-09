@@ -120,12 +120,17 @@ class RateLimiter:
 
 def create_app(
     passcode: str | None = None,
-    replay: bool = True,
+    replay: bool | None = None,
     rate_limit: int = 30,
     allow_tamper: bool | None = None,
     trust_proxy: bool | None = None,
 ) -> FastAPI:
     env = load_env()
+    if replay is None:
+        # Replay only when there is nothing to call. With a key configured,
+        # refusing to use it would make every request but the shipped one fail
+        # on a machine that could perfectly well answer it.
+        replay = not env.get("LLM_API_KEY")
     if passcode is None:
         passcode = env.get("DEMO_PASSCODE", "")
     if allow_tamper is None:
@@ -167,6 +172,7 @@ def create_app(
             "request": DEMO_REQUEST,
             "passcode_required": bool(passcode),
             "tamper_enabled": allow_tamper,
+            "replay_only": replay,
             "model": env.get("LLM_MODEL", "openai/gpt-4o-mini"),
         }
 
