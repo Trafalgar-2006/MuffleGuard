@@ -43,9 +43,20 @@ fact breaks the chain at that entry.
 ```bash
 python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.txt
 cp .env.example .env            # add an OpenAI-compatible key
-.venv/Scripts/python -m pytest  # 93 tests, no network needed
+.venv/Scripts/python -m pytest  # 119 tests, no network needed
 .venv/Scripts/python tools/hero_attack.py --no-muffle
 ```
+
+Or open the Attack Lab in a browser:
+
+```bash
+.venv/Scripts/python -m uvicorn web.app:app --port 8000
+```
+
+Both runs appear side by side, streamed as they happen, with the injected
+sentences struck through and every refusal carrying the line that explains it.
+The audit viewer will edit one of its own entries on request, so verification
+can be seen catching it (set `DEMO_TAMPER=1`).
 
 `hero_attack.py` runs the same request twice. Undefended, the agent obeys an
 email that nobody can see and posts a private file to the attacker. Defended

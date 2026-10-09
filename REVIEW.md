@@ -19,10 +19,11 @@ the two detector checks below works without them.
 
 | # | Command | What should happen |
 | --- | --- | --- |
-| 1 | `.venv/Scripts/python -m pytest` | 93 passed, well under a minute |
+| 1 | `.venv/Scripts/python -m pytest` | 119 passed, a few seconds |
 | 2 | `.venv/Scripts/python tools/hero_attack.py --no-muffle` | `GATE: PASS`. Undefended leaks, defended does not |
 | 3 | `.venv/Scripts/python tools/hero_attack.py` | Same verdict, but the attack is muffled before the model sees it |
 | 4 | `.venv/Scripts/python tools/hero_attack.py --detector` | Same, with the classifiers on. Slower: the models load |
+| 5 | `.venv/Scripts/python -m uvicorn web.app:app --port 8000` | The Attack Lab at http://127.0.0.1:8000 — both runs side by side |
 
 In run 2, the important line is the block reason:
 
@@ -52,6 +53,9 @@ The useful attention is here, in rough order of value.
    should be caught at that row.
 5. **Read `muffleguard/policy.py`.** It is the heart. If a rule there surprises
    you, that is worth more than a failing test.
+6. **Poke the server.** `web/app.py` is written as if already exposed: passcode,
+   rate limit, security headers, run-scoped audit logs. Try reaching another
+   run's log, or getting a response without the passcode when one is set.
 
 ## Already known, please do not report as bugs
 
