@@ -196,6 +196,58 @@ async function loadAudit() {
   }
 }
 
+/* ---- scorecard ---- */
+
+function rateCell(rate, goodWhenLow) {
+  const td = document.createElement("td");
+  const good = goodWhenLow ? rate.value === 0 : rate.value === 1;
+  if (rate.total) td.className = good ? "good" : goodWhenLow && rate.value > 0 ? "bad" : "";
+  const value = document.createElement("strong");
+  value.textContent = rate.total ? `${Math.round(rate.value * 100)}%` : "n/a";
+  td.appendChild(value);
+  if (rate.total) {
+    const ci = document.createElement("span");
+    ci.className = "ci";
+    ci.textContent = ` ${rate.successes}/${rate.total}, ${Math.round(rate.low * 100)}-${Math.round(rate.high * 100)}%`;
+    td.appendChild(ci);
+  }
+  return td;
+}
+
+const DEFENCE_NAMES = {
+  none: "No guard",
+  policy: "Policy engine only",
+  full: "Policy engine and muffling",
+};
+
+async function loadScorecard() {
+  const response = await fetch("/api/scorecard", { headers: headers() });
+  if (!response.ok) return;
+  const data = await response.json();
+
+  $("score").hidden = false;
+  $("score-note").textContent =
+    `${data.runs} runs: ${data.tasks} ordinary tasks against ${data.attacks} attacks, ` +
+    `each under three defences. Model ${data.model}, recorded ${data.generated}. ` +
+    `Ranges are 95% Wilson intervals` +
+    (data.errored ? `; ${data.errored} run(s) failed to reach the model and are counted as not breached.` : ".");
+
+  const body = $("score-table").querySelector("tbody");
+  body.textContent = "";
+  for (const condition of data.conditions) {
+    const tr = document.createElement("tr");
+    if (condition.name === "policy") tr.className = "highlight";
+    const name = document.createElement("td");
+    name.textContent = DEFENCE_NAMES[condition.name] || condition.name;
+    tr.appendChild(name);
+    tr.appendChild(rateCell(condition.attack_success, true));
+    tr.appendChild(rateCell(condition.attempt_rate, true));
+    tr.appendChild(rateCell(condition.stopped_when_attempted, false));
+    tr.appendChild(rateCell(condition.task_completion, false));
+    body.appendChild(tr);
+  }
+}
+
 /* ---- wiring ---- */
 
 async function runBoth(event) {
@@ -264,6 +316,8 @@ async function main() {
   }
   $("model-note").textContent = `Agent model: ${config.model}`;
   $("tamper").hidden = !config.tamper_enabled;
+
+  await loadScorecard();
 
   $("controls").addEventListener("submit", runBoth);
   $("verify").addEventListener("click", loadAudit);

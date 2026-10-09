@@ -34,6 +34,9 @@ from sandbox.tools import SPECS
 from sandbox.world import DEMO_REQUEST, World
 
 STATIC = Path(__file__).resolve().parent / "static"
+# The frozen evaluation. The server reads it; it never runs the suite on
+# request, because a number produced to order is not a measurement.
+RESULTS = Path(__file__).resolve().parent.parent / "evaluation" / "results.json"
 
 # One page, one script, one stylesheet, all served from here. No inline script
 # or style, so the policy below can forbid both outright.
@@ -218,6 +221,26 @@ def create_app(
         return StreamingResponse(
             _stream(body, runs, replay=not live), media_type="application/x-ndjson"
         )
+
+    @app.get("/api/scorecard")
+    def scorecard() -> dict:
+        """The recorded evaluation, minus the per-run detail the page ignores."""
+        if not RESULTS.exists():
+            raise HTTPException(404, "no evaluation has been recorded yet")
+        try:
+            data = json.loads(RESULTS.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            raise HTTPException(404, "the recorded evaluation could not be read")
+        errored = sum(1 for r in data.get("runs", []) if r.get("error"))
+        return {
+            "generated": data.get("generated", ""),
+            "model": data.get("model", ""),
+            "tasks": data.get("tasks", 0),
+            "attacks": data.get("attacks", 0),
+            "runs": len(data.get("runs", [])),
+            "errored": errored,
+            "conditions": data.get("conditions", []),
+        }
 
     @app.get("/api/audit")
     def audit(run_id: str = "") -> dict:

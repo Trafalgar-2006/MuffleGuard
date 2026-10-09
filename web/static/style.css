@@ -150,6 +150,18 @@ button.danger { color: var(--breach); }
 .empty { margin: 1rem clamp(1rem, 3vw, 2rem); color: var(--quiet); font-size: .9rem; }
 .empty b { color: var(--ink); font-weight: 600; }
 
+/* ---- scorecard ---- */
+
+.score { padding: 1.25rem clamp(1rem, 3vw, 2rem) 0; }
+.score-head { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: baseline; }
+.score-head h2 { margin: 0; font-size: .95rem; font-weight: 600; }
+.score-head p { margin: 0; color: var(--quiet); font-size: .85rem; }
+.score td.good { color: var(--hold); }
+.score td.bad { color: var(--breach); }
+.score .ci { color: var(--quiet); }
+.score tr.highlight td { background: rgba(61, 214, 140, .07); }
+.score th { white-space: normal; }
+
 /* ---- audit ---- */
 
 .audit { padding: 1.25rem clamp(1rem, 3vw, 2rem) 0; }

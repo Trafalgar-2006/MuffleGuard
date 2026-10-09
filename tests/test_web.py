@@ -7,6 +7,7 @@ the page can be rebuilt without rewriting any of this.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -302,3 +303,40 @@ def test_a_cached_run_never_spends_the_budget(monkeypatch):
     for _ in range(3):
         app.post("/api/run", json={"request": DEMO_REQUEST, "guarded": True})
     assert app.get("/api/config").json()["replay_only"] is True
+
+
+# --- the scorecard ----------------------------------------------------------
+
+
+def test_the_scorecard_serves_the_recorded_evaluation(client):
+    """The page shows the frozen result file, not a run it does on request."""
+    body = client.get("/api/scorecard").json()
+    assert body["model"]
+    assert body["generated"]
+    names = {c["name"] for c in body["conditions"]}
+    assert {"none", "policy", "full"} <= names
+
+
+def test_the_scorecard_reports_the_policy_stopping_every_attempt(client):
+    """The headline claim, read back from the measured file."""
+    body = client.get("/api/scorecard").json()
+    policy = next(c for c in body["conditions"] if c["name"] == "policy")
+    none = next(c for c in body["conditions"] if c["name"] == "none")
+
+    assert none["attack_success"]["successes"] > 0, "the baseline must actually break"
+    assert policy["attack_success"]["successes"] == 0
+    assert policy["stopped_when_attempted"]["value"] == 1.0
+
+
+def test_the_scorecard_carries_intervals_not_bare_rates(client):
+    body = client.get("/api/scorecard").json()
+    for condition in body["conditions"]:
+        rate = condition["attack_success"]
+        assert rate["low"] <= rate["value"] <= rate["high"]
+
+
+def test_a_missing_results_file_says_so_rather_than_inventing_numbers(monkeypatch):
+    import web.app as web_app
+
+    monkeypatch.setattr(web_app, "RESULTS", Path("no-such-results.json"))
+    assert TestClient(create_app(passcode="", replay=True)).get("/api/scorecard").status_code == 404
