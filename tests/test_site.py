@@ -22,7 +22,9 @@ from fastapi.testclient import TestClient
 from web.app import create_app
 
 SITE = Path(__file__).resolve().parent.parent / "site"
-PAGES = ["index.html", "docs.html", "lab.html"]
+# Derived from what is actually shipped, so deleting or adding a page cannot
+# leave the suite testing a file that is gone or skipping one that is new.
+PAGES = sorted(p.name for p in SITE.glob("*.html"))
 
 
 @pytest.fixture
@@ -101,3 +103,26 @@ def test_the_policy_allows_what_the_pages_actually_load(client):
     assert "script-src 'self'" in csp
     assert "'unsafe-inline'" not in csp.split("script-src")[1].split(";")[0]
     assert "font-src 'self'" in csp
+
+
+def test_there_is_one_attack_lab_not_two():
+    """A scripted replica of the lab used to be served at /lab.
+
+    Two pages showing the same thing is one too many, and a static copy drifts
+    away from the app it imitates until it is quietly lying. The route stays as
+    a redirect so older links keep working.
+    """
+    from fastapi.testclient import TestClient
+
+    from web.app import create_app
+
+    client = TestClient(create_app(passcode="", replay=True), follow_redirects=False)
+    response = client.get("/lab")
+    assert response.status_code == 308
+    assert response.headers["location"] == "/live"
+
+    assert not (SITE / "lab.html").exists(), "the replica should be gone, not hidden"
+
+    # Nothing in the site should still send a reader to the replica.
+    for page in SITE.glob("*.html"):
+        assert 'href="/lab"' not in page.read_text(encoding="utf-8"), page.name

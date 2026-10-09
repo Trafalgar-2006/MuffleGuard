@@ -22,7 +22,7 @@ from datetime import date
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.background import BackgroundTask
@@ -328,9 +328,15 @@ def create_app(
         return FileResponse(SITE / "docs.html")
 
     @app.get("/lab")
-    def lab_page() -> FileResponse:
-        """The Attack Lab as designed: a scripted walkthrough, no model calls."""
-        return FileResponse(SITE / "lab.html")
+    def lab_page() -> RedirectResponse:
+        """One Attack Lab, not two.
+
+        A scripted replica of the lab used to live here. Two pages showing the
+        same thing is one too many, and the static one would drift away from
+        the app it was imitating: a visitor landing on it would be reading a
+        picture of a result rather than a result. Old links still work.
+        """
+        return RedirectResponse("/live", status_code=308)
 
     @app.get("/live")
     def live_lab() -> FileResponse:
