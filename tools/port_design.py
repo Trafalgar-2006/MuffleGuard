@@ -44,19 +44,17 @@ PAGES = {
         "MuffleGuard — documentation",
         "Install, flags, the audit log, privacy limits and credits for MuffleGuard.",
     ),
-    "MuffleGuard Attack Lab.dc.html": (
-        "lab.html",
-        "MuffleGuard — Attack Lab",
-        "Run the same request with the guard off and on, and watch the refusal and the "
-        "audit chain as they happen.",
-    ),
 }
 
+# The Attack Lab export is deliberately not built. There is one Attack Lab, and
+# it is the running app at /live; a static replica of it would drift away from
+# the thing it imitates until a visitor was reading a picture of a result
+# rather than a result. Links that pointed at the replica go to the app.
 LINKS = {
     "MuffleGuard Docs.dc.html": "docs.html",
     "MuffleGuard%20Docs.dc.html": "docs.html",
-    "MuffleGuard Attack Lab.dc.html": "lab.html",
-    "MuffleGuard%20Attack%20Lab.dc.html": "lab.html",
+    "MuffleGuard Attack Lab.dc.html": "/live",
+    "MuffleGuard%20Attack%20Lab.dc.html": "/live",
     "MuffleGuard.dc.html": "index.html",
     "assets/logo-light-bg.png": "assets/logo-light.png",
     "assets/logo-dark-bg.png": "assets/logo-dark.png",
@@ -169,7 +167,7 @@ def fixups(path: Path) -> None:
     # hostname is now the landing page, so the working lab moved to /live
     t = t.replace('href="index.html"', 'href="/"')
     t = t.replace('href="docs.html"', 'href="/docs"')
-    t = t.replace('href="lab.html"', 'href="/lab"')
+    t = t.replace('href="lab.html"', 'href="/live"')
     t = t.replace(LIVE, "/live")
     t = t.replace('href="assets/', 'href="/assets/').replace('src="assets/', 'src="/assets/')
 
