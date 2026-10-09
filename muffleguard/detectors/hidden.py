@@ -98,10 +98,16 @@ def _try_b64(blob: str) -> str | None:
     return text if text and printable / len(text) > 0.9 else None
 
 
-def strip_hidden(text: str) -> tuple[str, list[HiddenFinding]]:
-    """Remove hidden carriers so the model reads only what the person sees."""
-    findings = find_hidden(text)
+def strip_hidden(text: str) -> tuple[str, tuple[HiddenFinding, ...]]:
+    """Remove hidden carriers so the model reads only what the person sees.
+
+    Anything that gives an order goes, and so does anything written to be
+    invisible, whatever it says: text a reader cannot see has no business
+    reaching the model either way.
+    """
+    findings = tuple(find_hidden(text))
     cleaned = text
     for f in findings:
-        cleaned = cleaned.replace(f.carrier, "")
+        if f.imperative or f.kind in ("unicode_tags", "zero_width"):
+            cleaned = cleaned.replace(f.carrier, "")
     return cleaned, findings

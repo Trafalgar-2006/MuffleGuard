@@ -45,8 +45,26 @@ class Message:
         return d
 
 
+# Every setting the app reads. A deployment has no .env file, so anything
+# missing from this list can only be configured locally: leaving DEMO_PASSCODE
+# out of it once meant the live demo ran with its API unprotected while the
+# platform showed the variable as set.
+SETTINGS = (
+    "LLM_API_KEY",
+    "LLM_BASE_URL",
+    "LLM_MODEL",
+    "LLM_MODEL_STRONG",
+    "DEMO_PASSCODE",
+    "DEMO_TAMPER",
+    "TRUST_PROXY",
+)
+
+
 def load_env(path: Path | None = None) -> dict:
-    """Read .env without a dependency, and never log what it holds."""
+    """Settings from the environment, falling back to .env. Never logged.
+
+    The environment wins, because that is how a deployment configures itself.
+    """
     env_path = path or Path(__file__).resolve().parent.parent / ".env"
     values = {}
     if env_path.exists():
@@ -55,7 +73,7 @@ def load_env(path: Path | None = None) -> dict:
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
                 values[key.strip()] = value.strip()
-    for key in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "LLM_MODEL_STRONG"):
+    for key in SETTINGS:
         if os.environ.get(key):
             values[key] = os.environ[key]
     return values
@@ -79,8 +97,6 @@ class LLM:
         # is an error rather than a stand-in answer: a demo that invented the
         # model's reply would be showing a story, not a result.
         self.replay = replay
-        self.calls = 0
-        self.cache_hits = 0
 
     def _key(self, body: dict) -> str:
         blob = json.dumps(body, sort_keys=True, separators=(",", ":"))
@@ -98,7 +114,6 @@ class LLM:
         key = self._key(body)
         cached = CACHE_DIR / f"{key}.json"
         if self.use_cache and cached.exists():
-            self.cache_hits += 1
             return json.loads(cached.read_text(encoding="utf-8"))
 
         if self.replay:
@@ -123,7 +138,6 @@ class LLM:
             # The body can echo the request; never include the key in the error.
             raise LLMError(f"{self.model}: HTTP {response.status_code} {response.text[:200]}")
         data = response.json()
-        self.calls += 1
         if self.use_cache:
             CACHE_DIR.mkdir(exist_ok=True)
             cached.write_text(json.dumps(data), encoding="utf-8")

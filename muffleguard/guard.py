@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from .audit import AuditLog
-from .detectors.hidden import HiddenFinding, find_hidden
+from .detectors.hidden import HiddenFinding, find_hidden, strip_hidden
 from .detectors.secrets import redact, scan
 from .policy import Decision, PolicyEngine, Reason, ToolSpec, Verdict
 from .trace import Ledger, Source
@@ -53,10 +53,6 @@ class GuardResult:
         if not self.reasons:
             return "Allowed."
         return max(self.reasons, key=lambda r: r.decision.severity).text
-
-    @property
-    def blocked(self) -> bool:
-        return self.decision is Decision.BLOCK
 
 
 class Guard:
@@ -156,7 +152,7 @@ class Guard:
         """
         source = self.policy.classify_result(event.tool)
         label = event.label or f"the result of {event.tool}"
-        content, hidden = _strip_carriers(event.text)
+        content, hidden = strip_hidden(event.text)
 
         # Record the decoded hidden text alongside the visible text. An address
         # written in invisible Unicode is normalised out of the raw text, so
@@ -281,13 +277,6 @@ def _strip_remote_images(text: str) -> tuple[str, list[str]]:
     return _IMAGE_RE.sub(take, text), urls
 
 
-def _strip_carriers(text: str) -> tuple[str, tuple[HiddenFinding, ...]]:
-    findings = tuple(find_hidden(text))
-    cleaned = text
-    for f in findings:
-        if f.imperative or f.kind in ("unicode_tags", "zero_width"):
-            cleaned = cleaned.replace(f.carrier, "")
-    return cleaned, findings
 
 
 __all__ = ["Guard", "Event", "GuardResult", "Decision", "ToolSpec", "scan"]

@@ -21,7 +21,7 @@ from collections import OrderedDict, defaultdict, deque
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -274,8 +274,6 @@ def _scrub(message: str) -> str:
 
 
 def _json(status: int, body: dict):
-    from fastapi.responses import JSONResponse
-
     return JSONResponse(status_code=status, content=body)
 
 

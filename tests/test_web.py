@@ -227,3 +227,24 @@ def test_editing_an_entry_that_does_not_exist_says_so(client):
 
 def test_editing_without_naming_a_run_is_refused(client):
     assert client.post("/api/audit/tamper", json={"seq": 2}).status_code == 400
+
+
+def test_every_setting_can_be_set_from_the_environment(monkeypatch):
+    """A deployment has no .env file, so the environment is the only way in.
+
+    DEMO_PASSCODE was missing from the list once, and the live demo served its
+    API unauthenticated while the platform showed the variable as set.
+    """
+    from sandbox.llm import SETTINGS, load_env
+
+    for name in ("DEMO_PASSCODE", "DEMO_TAMPER", "TRUST_PROXY"):
+        assert name in SETTINGS
+
+    monkeypatch.setenv("DEMO_PASSCODE", "from-the-environment")
+    assert load_env()["DEMO_PASSCODE"] == "from-the-environment"
+
+    gated = TestClient(create_app(replay=True))
+    assert gated.get("/api/config").status_code == 401
+    assert gated.get(
+        "/api/config", headers={"X-Demo-Passcode": "from-the-environment"}
+    ).status_code == 200
