@@ -66,8 +66,13 @@ class Guard:
         audit: AuditLog | None = None,
         ledger: Ledger | None = None,
         muffle: bool = True,
+        descriptions: dict[str, str] | None = None,
     ) -> None:
         self.policy = PolicyEngine(tools)
+        if descriptions:
+            # Pin what the tools claimed at startup, so a description
+            # edited later is refused rather than obeyed.
+            self.policy.pin_descriptions(descriptions)
         self.detector = detector  # None means: run on the policy engine alone
         # muffle=False strips nothing, so the model reads the injection in full.
         # It is how the red-team suite simulates every content defence failing

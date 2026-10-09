@@ -1,0 +1,36 @@
+name: tests
+
+# Runs on a clean checkout, which is the point: the suite once passed on the
+# machine that recorded the demo fixtures and failed everywhere else.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements-dev.txt
+
+      - name: Tests
+        run: python -m pytest
+
+      - name: The offline demo still breaches undefended and holds defended
+        # No key here, so this also proves the committed fixtures replay on a
+        # machine that has never recorded anything.
+        run: python tools/hero_attack.py --no-muffle
+
+      - name: The evaluation reproduces
+        run: python -m evaluation.run --adversary --workers 4 --out /tmp/ci-results.json
+
+      - name: Nothing credential-shaped is committed
+        run: python tools/check_secrets.py

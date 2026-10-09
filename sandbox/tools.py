@@ -47,7 +47,9 @@ SPECS: dict[str, ToolSpec] = {
 
 # What the model is told is generated from the same argument declarations that
 # the policy and adapter validate. shell_run stays private to the sandbox.
-_DESCRIPTIONS = {
+# What each tool tells the model it does. Pinned by the guard at startup, so
+# a description edited later is refused rather than obeyed.
+DESCRIPTIONS = {
     "inbox_list": "List emails in the user's inbox.",
     "inbox_read": "Read the full body of one email by its id.",
     "files_read": "Read one of the user's private files by name.",
@@ -71,7 +73,7 @@ SCHEMA: list[dict] = [
             },
         },
     }
-    for name, description in _DESCRIPTIONS.items()
+    for name, description in DESCRIPTIONS.items()
 ]
 
 

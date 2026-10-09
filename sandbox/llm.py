@@ -172,7 +172,7 @@ class LLM:
             f"{self.base_url}/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json=body,
-            timeout=120,
+            timeout=180,  # some free providers are slow to first token
         )
         if response.status_code != 200:
             # A provider error body can echo credentials or private prompt data.

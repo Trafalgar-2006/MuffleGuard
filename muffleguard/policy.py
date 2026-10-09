@@ -138,6 +138,39 @@ class PolicyEngine:
     def __init__(self, tools: dict[str, ToolSpec], scanner=scan) -> None:
         self.tools = tools
         self.scan = scanner
+        # What each tool said it did when the agent started, and what it says
+        # now. A tool's description is an instruction to the model, so whoever
+        # can edit it can redirect the agent without touching any content the
+        # agent reads. Empty until something pins it, so this costs nothing
+        # when nobody is using it.
+        self._pinned: dict[str, str] = {}
+        self._current: dict[str, str] = {}
+
+    def pin_descriptions(self, descriptions: dict[str, str]) -> None:
+        """Record the descriptions the agent was started with."""
+        self._pinned = dict(descriptions)
+        self._current = dict(descriptions)
+
+    def describe_now(self, descriptions: dict[str, str]) -> None:
+        """Tell the engine what the tools are claiming at this moment."""
+        self._current = dict(descriptions)
+
+    def _description_changed(self, name: str) -> list[Reason]:
+        pinned = self._pinned.get(name)
+        if pinned is None:
+            return []
+        now = self._current.get(name, "")
+        if now == pinned:
+            return []
+        return [
+            Reason(
+                "R7-TOOL-CHANGED",
+                Decision.BLOCK,
+                f"The description of {name} has changed since the agent started, "
+                "so it is not the tool that was approved.",
+                {"tool": name, "was": pinned[:200], "now": now[:200]},
+            )
+        ]
 
     # -- tool calls ----------------------------------------------------------
 
@@ -176,6 +209,7 @@ class PolicyEngine:
             )
 
         reasons: list[Reason] = []
+        reasons += self._description_changed(name)
         reasons += self._dangerous_commands(spec, args)
         if spec.outbound:
             reasons += self._target_provenance(spec, args, ledger)
