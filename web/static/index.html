@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MuffleGuard Attack Lab</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#128737;</text></svg>">
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <h1>MuffleGuard</h1>
+    <p>The same request, sent to an undefended agent and a guarded one.</p>
+  </div>
+
+  <form class="controls" id="controls">
+    <label class="field">
+      <span>Request</span>
+      <input type="text" id="request" name="request" autocomplete="off" spellcheck="false">
+    </label>
+    <fieldset class="toggles">
+      <legend>Guard layers</legend>
+      <label><input type="checkbox" id="muffle" checked> Muffle injected text</label>
+      <label><input type="checkbox" id="detector"> Run the classifiers</label>
+    </fieldset>
+    <button type="submit" id="run">Run both</button>
+  </form>
+</header>
+
+<main class="lab">
+  <section class="side" id="side-unguarded" aria-labelledby="h-unguarded">
+    <h2 id="h-unguarded">No guard</h2>
+    <ol class="trace" id="trace-unguarded" aria-live="polite"></ol>
+    <div class="outcome" id="outcome-unguarded"></div>
+  </section>
+
+  <section class="side" id="side-guarded" aria-labelledby="h-guarded">
+    <h2 id="h-guarded">MuffleGuard</h2>
+    <ol class="trace" id="trace-guarded" aria-live="polite"></ol>
+    <div class="outcome" id="outcome-guarded"></div>
+  </section>
+</main>
+
+<p class="empty" id="empty">Press <b>Run both</b>. One of these emails hides an instruction that nobody can see.</p>
+
+<section class="audit" aria-labelledby="h-audit">
+  <div class="audit-head">
+    <h2 id="h-audit">Audit log</h2>
+    <p id="audit-state">Every decision the guard made, each entry sealed with the hash of the one before.</p>
+    <div class="audit-actions">
+      <button type="button" id="verify">Check the chain</button>
+      <button type="button" id="tamper" class="danger">Edit an entry</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="audit-table">
+      <thead><tr><th>#</th><th>Checkpoint</th><th>Decision</th><th>Follows</th><th>Hash</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <span id="model-note"></span>
+  <a href="https://github.com/Trafalgar-2006/MuffleGuard">Source</a>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

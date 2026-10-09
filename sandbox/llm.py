@@ -64,11 +64,21 @@ def load_env(path: Path | None = None) -> dict:
 class LLM:
     """One chat completion call, cached."""
 
-    def __init__(self, model: str | None = None, env: dict | None = None, use_cache: bool = True):
+    def __init__(
+        self,
+        model: str | None = None,
+        env: dict | None = None,
+        use_cache: bool = True,
+        replay: bool = False,
+    ):
         self.env = env or load_env()
         self.model = model or self.env.get("LLM_MODEL", "openai/gpt-4o-mini")
         self.base_url = self.env.get("LLM_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
         self.use_cache = use_cache
+        # replay serves only what is already cached and never calls out. A miss
+        # is an error rather than a stand-in answer: a demo that invented the
+        # model's reply would be showing a story, not a result.
+        self.replay = replay
         self.calls = 0
         self.cache_hits = 0
 
@@ -90,6 +100,12 @@ class LLM:
         if self.use_cache and cached.exists():
             self.cache_hits += 1
             return json.loads(cached.read_text(encoding="utf-8"))
+
+        if self.replay:
+            raise LLMError(
+                "no cached response for this request. Set LLM_API_KEY to run it live, "
+                "or use the request the demo ships with."
+            )
 
         api_key = self.env.get("LLM_API_KEY")
         if not api_key:

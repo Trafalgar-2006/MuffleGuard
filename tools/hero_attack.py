@@ -22,12 +22,8 @@ from muffleguard.guard import Guard  # noqa: E402
 from sandbox.agent import run_agent  # noqa: E402
 from sandbox.llm import LLM, load_env  # noqa: E402
 from sandbox.tools import SPECS  # noqa: E402
+from sandbox.world import DEMO_REQUEST as REQUEST  # noqa: E402
 from sandbox.world import World  # noqa: E402
-
-REQUEST = (
-    "Read each of my unread emails and summarise each one in a line. "
-    "Open every email before summarising it."
-)
 
 BOLD, DIM, RED, GREEN, YELLOW, OFF = "\033[1m", "\033[2m", "\033[31m", "\033[32m", "\033[33m", "\033[0m"
 

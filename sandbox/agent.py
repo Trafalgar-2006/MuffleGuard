@@ -64,6 +64,7 @@ def run_agent(
     llm: LLM | None = None,
     max_steps: int = 8,
     approve: Callable[[str, str, dict], bool] | None = None,
+    on_step: Callable[[Step], None] | None = None,
 ) -> RunResult:
     """Run one request to completion.
 
@@ -73,6 +74,13 @@ def run_agent(
     world = world or World()
     llm = llm or LLM()
     steps: list[Step] = []
+
+    def record(step: Step) -> None:
+        """Collect the step and, if someone is watching, hand it over now."""
+        steps.append(step)
+        if on_step is not None:
+            on_step(step)
+
 
     if guard is not None:
         screened = guard.check(Event(kind="request", text=request, label="your request"))
@@ -94,7 +102,7 @@ def run_agent(
             answer = message.get("content") or ""
             if guard is not None:
                 checked = guard.check(Event(kind="answer", text=answer))
-                steps.append(
+                record(
                     Step(
                         "answer",
                         text=checked.content,
@@ -103,7 +111,7 @@ def run_agent(
                     )
                 )
                 return RunResult(checked.content, steps, world, True)
-            steps.append(Step("answer", text=answer))
+            record(Step("answer", text=answer))
             return RunResult(answer, steps, world, False)
 
         messages.append(Message("assistant", message.get("content"), tool_calls=tool_calls))
@@ -126,7 +134,7 @@ def run_agent(
                         else:
                             guard.deny(verdict.pending_id)
                     if not allowed:
-                        steps.append(
+                        record(
                             Step(
                                 "blocked",
                                 tool=name,
@@ -146,7 +154,7 @@ def run_agent(
                         )
                         continue
 
-            steps.append(Step("tool_call", tool=name, args=args))
+            record(Step("tool_call", tool=name, args=args))
             result, label = run_tool(world, name, args)
 
             if guard is not None:
@@ -154,7 +162,7 @@ def run_agent(
                     Event(kind="tool_result", tool=name, text=result, label=label)
                 )
                 result = checked.content
-                steps.append(
+                record(
                     Step(
                         "tool_result",
                         tool=name,
@@ -165,7 +173,7 @@ def run_agent(
                     )
                 )
             else:
-                steps.append(Step("tool_result", tool=name, text=result))
+                record(Step("tool_result", tool=name, text=result))
 
             messages.append(Message("tool", result, tool_call_id=call["id"], name=name))
 
