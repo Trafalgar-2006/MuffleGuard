@@ -289,7 +289,7 @@ def test_page_discloses_google_access_and_model_provider_transfer():
     import web.app as web_app
 
     client = TestClient(web_app.create_app(passcode="", replay=True))
-    page = client.get("/").text
+    page = client.get("/live").text
     assert "Use connected Google data" in page
     assert "Read-only access across Gmail and Drive" in page
     assert "configured model provider" in page
