@@ -3,7 +3,7 @@
 A checklist for reviewing this before the deadline. No API key is needed: the
 model responses are cached in the repo, so everything below runs offline.
 
-There is also a live one at https://attack-lab-production.up.railway.app,
+There is also a live one at https://attack-lab-production.up.railway.app/live,
 open to anyone, which runs real requests until the day's allowance is used and
 then replays the recorded run.
 
@@ -39,7 +39,7 @@ Everything else works without the classifier weights.
 | 2 | `.venv/Scripts/python tools/hero_attack.py --no-muffle` | `GATE: PASS`. Undefended leaks, defended does not |
 | 3 | `.venv/Scripts/python tools/hero_attack.py` | Same verdict, but the attack is muffled before the model sees it |
 | 4 | `.venv/Scripts/python tools/hero_attack.py --detector` | Same, with both classifiers loaded. Exits early if either is unavailable |
-| 5 | `.venv/Scripts/python -m uvicorn web.app:app --port 8000` | The Attack Lab at http://127.0.0.1:8000, both runs side by side |
+| 5 | `.venv/Scripts/python -m uvicorn web.app:app --port 8000` | The Attack Lab at http://127.0.0.1:8000/live, both runs side by side |
 | 6 | `.venv/Scripts/python -m evaluation.run --adversary` | 216 runs, no errors, no cost. Policy engine stops 64/64 |
 
 In run 2, the important line is the block reason:

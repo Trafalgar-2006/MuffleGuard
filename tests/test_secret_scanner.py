@@ -65,3 +65,28 @@ def test_scanner_does_not_ignore_a_card_number_in_a_fixture_file(monkeypatch, tm
 
     assert result == 1
     assert "card" in output
+
+
+def test_an_svg_path_is_not_reported_as_a_card_number(monkeypatch, tmp_path, capsys):
+    """The drawings tripped the card rule: strip the separators from a path's
+    coordinates and some runs are Luhn-valid. They are drawing instructions."""
+    path = 'M60 15 C80 15 92 28 92 44 C92 54 86 60 86 60 C86 40 76 33 60 33 Z'
+    result, output = _scan_fixture(
+        monkeypatch, tmp_path, f'<svg><path d="{path}"></path></svg>\n', capsys
+    )
+
+    assert result == 0, output
+
+
+def test_a_key_beside_an_svg_path_is_still_caught(monkeypatch, tmp_path, capsys):
+    """The exclusion is the geometry attribute only, not the file around it."""
+    result, output = _scan_fixture(
+        monkeypatch,
+        tmp_path,
+        '<svg><path d="M60 15 C80 15 92 28 92 44 Z"></path></svg>\n'
+        'KEY = "AKIAIOSFODNN' + '7EXAMPLE"\n',
+        capsys,
+    )
+
+    assert result == 1
+    assert "aws" in output.lower()

@@ -10,6 +10,7 @@ exact values are exempt; the rest of each file is still scanned.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -76,10 +77,30 @@ def tracked_files() -> list[str]:
 
 def _looks_utf16(raw: bytes) -> bool:
     """UTF-16 text: a BOM, or ASCII bytes alternating with NULs."""
-    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+    if raw[:2] in (bytes([255, 254]), bytes([254, 255])):
         return True
     head = raw[:512]
     return len(head) > 8 and head[1::2].count(0) > len(head) // 3
+
+
+def _without_vector_geometry(text: str) -> str:
+    """Blank the coordinate payload of inline SVG before scanning.
+
+    The illustrations on the site are inline SVG, and a path's `d` attribute is
+    a long run of space-separated numbers. Strip the separators, as a card
+    detector must, and some of those runs are Luhn-valid: the scanner reported
+    the drawings as payment cards. The digits are drawing instructions, not a
+    number anyone could pay with, so they are removed here rather than by
+    loosening the detector the guard itself uses.
+
+    Narrow on purpose: only geometry attributes, and only their contents. A
+    credential is not digits-only, so nothing credential-shaped hides in one.
+    """
+    return re.sub(
+        r'\b(d|points|viewBox|transform|stroke-dasharray)="[0-9eE,.\s+\-A-Za-z()%]*"',
+        r'\1=""',
+        text,
+    )
 
 
 def main() -> int:
@@ -103,6 +124,7 @@ def main() -> int:
         text = raw.decode("utf-8", errors="ignore")
         if _looks_utf16(raw):
             text += raw.decode("utf-16", errors="ignore")
+        text = _without_vector_geometry(text)
         for finding in scan(text):
             if finding.value in FIXTURE_VALUES.get(name, set()):
                 continue

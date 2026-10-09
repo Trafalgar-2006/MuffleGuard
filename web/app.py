@@ -35,6 +35,7 @@ from sandbox.tools import DESCRIPTIONS, SPECS
 from sandbox.world import DEMO_REQUEST, World
 
 STATIC = Path(__file__).resolve().parent / "static"
+SITE = Path(__file__).resolve().parent.parent / "site"
 # The frozen evaluation. The server reads it; it never runs the suite on
 # request, because a number produced to order is not a measurement.
 RESULTS = Path(__file__).resolve().parent.parent / "evaluation" / "results.json"
@@ -43,11 +44,19 @@ MAX_API_BODY = 32 * 1024
 MAX_AGENT_STEPS = 8
 MAX_ACTIVE_RUNS = 8
 
-# One page, one script, one stylesheet, all served from here. No inline script
-# or style, so the policy below can forbid both outright.
+# Everything is served from here: the pages, their scripts, the animation
+# bundles and the web fonts. Nothing is fetched from a CDN, so the demo also
+# works on a venue network that blocks one.
+#
+# script-src stays strict: no inline script, no remote origin, which is the
+# half that stops an injected <script>. style-src has to allow inline, because
+# the marketing pages carry their layout in style attributes exported from the
+# design tool; an attacker who could set one of those already controls the
+# markup, and no script runs from it.
 CSP = (
-    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-    "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+    "frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 )
 
 
@@ -311,7 +320,21 @@ def create_app(
         return _harden(await call_next(request))
 
     @app.get("/")
-    def page() -> FileResponse:
+    def landing() -> FileResponse:
+        return FileResponse(SITE / "index.html")
+
+    @app.get("/docs")
+    def docs_page() -> FileResponse:
+        return FileResponse(SITE / "docs.html")
+
+    @app.get("/lab")
+    def lab_page() -> FileResponse:
+        """The Attack Lab as designed: a scripted walkthrough, no model calls."""
+        return FileResponse(SITE / "lab.html")
+
+    @app.get("/live")
+    def live_lab() -> FileResponse:
+        """The real thing: every line on this page is a decision the guard made."""
         return FileResponse(STATIC / "index.html")
 
     @app.get("/api/config")
@@ -406,6 +429,7 @@ def create_app(
             return {"verified": check.ok, "broken_at": check.broken_at, "detail": check.detail}
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    app.mount("/assets", StaticFiles(directory=SITE / "assets"), name="assets")
     return app
 
 

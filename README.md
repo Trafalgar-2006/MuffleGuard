@@ -41,7 +41,8 @@ Every decision is written to a hash-chained SQLite log. A separately recorded
 head makes deleting the last row detectable while the database metadata remains
 intact.
 
-Live demo: **https://attack-lab-production.up.railway.app**
+Live demo: **https://attack-lab-production.up.railway.app** — the site is at `/`, the working Attack Lab at
+`/live`, and the designed lab walkthrough at `/lab`.
 
 ## Try it
 
@@ -57,6 +58,10 @@ Or open the Attack Lab in a browser:
 ```bash
 .venv/Scripts/python -m uvicorn web.app:app --port 8000
 ```
+
+`/` is the site, `/live` is the Attack Lab with a real guard behind it, and
+`/lab` is the same lab as a scripted walkthrough. The site pages are built
+from the design exports by `python tools/port_design.py <export folder>`.
 
 Both runs appear side by side, streamed as they happen, with the injected
 sentences struck through and every refusal carrying the line that explains it.
@@ -180,13 +185,26 @@ Known gaps are asserted as they behave in `tests/test_redteam.py`.
 | [httpx](https://www.python-httpx.org/) | BSD-3 |
 | [FastAPI](https://fastapi.tiangolo.com/), [Starlette](https://www.starlette.io/), [Uvicorn](https://www.uvicorn.org/) | MIT / BSD-3 / BSD-3 |
 | [pytest](https://pytest.org/), [Hypothesis](https://hypothesis.works/) | MIT / MPL-2.0 |
-| [GSAP](https://gsap.com/) 3.12.5 and ScrollTrigger, on the landing page only | GSAP standard licence (no-charge tier) |
-| [Archivo](https://fonts.google.com/specimen/Archivo) via Google Fonts | SIL OFL 1.1 |
+| [GSAP](https://gsap.com/) 3.12.5 with ScrollTrigger, on the site pages | GSAP standard licence (no-charge tier) |
+| [anime.js](https://animejs.com/) 3.2.2, on the site pages | MIT |
+| [Motion](https://motion.dev/) 11.11.13, on the site pages | MIT |
+| [Archivo](https://fonts.google.com/specimen/Archivo) and [IBM Plex Mono](https://github.com/IBM/plex), served from `site/assets/fonts` | SIL OFL 1.1 |
+| [Pillow](https://python-pillow.org/), used once to crop the logo | MIT-CMU |
 | Agent model via [OpenRouter](https://openrouter.ai/) | provider terms |
 
 The Verhoeff and Luhn checksums are implemented from their published
 definitions. The sandbox inbox, files and attacks are written by us; no real
 account or personal data is used anywhere.
+
+The three animation bundles and both typefaces are vendored under
+`site/assets/`, so the pages load nothing from a CDN and the demo survives a
+venue network that blocks one. `tests/test_site.py` asserts that.
+
+The site's look comes from a design system we made for this project in Claude's
+design tool and then exported; `site/assets/ds.css` is that export, and
+`tools/port_design.py` turns the exported pages into the ones served here. No
+project generator or third-party template was used: there is no `create-vite`
+scaffold anywhere in this repository.
 
 ## AI usage
 
