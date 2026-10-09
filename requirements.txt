@@ -1,4 +1,9 @@
+# The detectors run on the CPU through ONNX Runtime, so torch is not needed.
+onnxruntime==1.31.0
+tokenizers==0.23.2
+numpy==2.4.6
+
+# The dashboard and the agent's HTTP client.
 fastapi==0.120.4
 uvicorn==0.38.0
 httpx==0.28.1
-python-dotenv==1.2.1

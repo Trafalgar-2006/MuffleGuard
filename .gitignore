@@ -7,6 +7,5 @@ __pycache__/
 .hypothesis/
 *.db
 
-.llm_cache/
 .venv/
 .models/
