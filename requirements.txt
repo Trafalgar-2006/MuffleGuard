@@ -9,5 +9,6 @@ numpy==2.4.6
 httpx==0.28.1
 
 # The Attack Lab (web/app.py) is served with these.
-fastapi==0.120.4
+fastapi==0.143.0
+starlette==1.7.0
 uvicorn==0.38.0

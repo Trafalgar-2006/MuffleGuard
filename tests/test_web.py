@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from sandbox.world import DEMO_REQUEST
-from web.app import create_app
+from web.app import RateLimiter, create_app
 
 
 def lines(response) -> list[dict]:
@@ -278,19 +278,36 @@ def test_the_replay_message_says_what_to_do(client):
 def test_the_daily_budget_falls_back_to_the_recording_instead_of_spending(monkeypatch):
     """A public URL with a live key needs a ceiling on the bill, not just on one visitor.
 
-    Past the day's allowance the run still works: it replays the recorded one,
-    which is what most visitors press anyway.
+    When the remaining allowance cannot cover a full run, the demo switches to
+    the recording before that run makes any provider calls.
     """
     monkeypatch.setenv("LLM_API_KEY", "sk-test-never-called")
-    monkeypatch.setenv("DEMO_DAILY_RUNS", "2")
+    import web.app as web_app
+
+    class OneCallLLM:
+        live_calls = 0
+
+        def __init__(self, replay=False, on_live_call=None):
+            self.replay = replay
+            self.on_live_call = on_live_call
+
+        def complete(self, *_args, **_kwargs):
+            if not self.replay:
+                assert self.on_live_call()
+                type(self).live_calls += 1
+            return {"choices": [{"message": {"content": "recorded answer"}}]}
+
+    monkeypatch.setattr(web_app, "LLM", OneCallLLM)
+    monkeypatch.setenv("DEMO_DAILY_RUNS", "8")
     app = TestClient(create_app(passcode=""))
+    OneCallLLM.live_calls = 0
 
     assert app.get("/api/config").json()["replay_only"] is False
-    for _ in range(2):
-        app.post("/api/run", json={"request": DEMO_REQUEST, "guarded": True})
+    app.post("/api/run", json={"request": DEMO_REQUEST, "guarded": True})
 
-    # The allowance is gone, so the next run replays rather than calling out.
+    # Seven calls remain, too few to reserve an eight-step run.
     events = lines(app.post("/api/run", json={"request": DEMO_REQUEST, "guarded": True}))
+    assert OneCallLLM.live_calls == 1
     assert events[-1]["error"] == ""
     assert app.get("/api/config").json()["replay_only"] is True
 
@@ -302,3 +319,255 @@ def test_a_cached_run_never_spends_the_budget(monkeypatch):
     for _ in range(3):
         app.post("/api/run", json={"request": DEMO_REQUEST, "guarded": True})
     assert app.get("/api/config").json()["replay_only"] is True
+
+
+def test_the_shipped_replay_cache_matches_the_default_request():
+    """A replay cache miss should not make the built-in demo fail offline."""
+    from sandbox.agent import SYSTEM_PROMPT
+    from sandbox.llm import LLM, Message
+    from sandbox.tools import SCHEMA
+
+    llm = LLM(replay=True)
+    response = llm.complete(
+        [Message("system", SYSTEM_PROMPT), Message("user", DEMO_REQUEST)],
+        tools=SCHEMA,
+    )
+    assert LLM.message_of(response)
+
+
+def test_unique_client_addresses_do_not_grow_the_rate_limiter_forever():
+    limiter = RateLimiter(limit=30)
+    for i in range(5000):
+        limiter.allow(f"client-{i}")
+    assert len(limiter.seen) <= 4096
+
+
+def test_oversized_json_is_rejected_even_when_extra_fields_are_ignored(client):
+    response = client.post(
+        "/api/run",
+        content=json.dumps({"request": "hello", "unused": "x" * 40_000}),
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 413
+
+
+def test_chunked_oversized_json_is_rejected_without_content_length(client):
+    chunks = iter([b'{"request":"hello","unused":"', b"x" * 40_000, b'"}'])
+    response = client.post(
+        "/api/run", content=chunks, headers={"content-type": "application/json"}
+    )
+    assert response.status_code == 413
+
+
+def test_public_run_cannot_accept_a_client_supplied_approval(client):
+    response = client.post(
+        "/api/run",
+        json={"request": DEMO_REQUEST, "guarded": True, "approve": True},
+    )
+    assert response.status_code == 422
+
+
+def test_malformed_host_cannot_bypass_api_passcode():
+    gated = TestClient(create_app(passcode="required", replay=True))
+    response = gated.get(
+        "/api/config", headers={"host": "attacker.example/not-api"}
+    )
+    assert response.status_code == 401
+
+
+def test_run_ids_have_128_bits_of_randomness(client):
+    run_id = run(client, guarded=True)[0]["run_id"]
+    assert len(run_id) == 32
+    assert all(character in "0123456789abcdef" for character in run_id)
+
+
+def test_api_responses_cannot_be_cached_between_visitors(client):
+    response = client.get("/api/audit")
+    assert response.headers.get("cache-control") == "no-store"
+
+
+def test_daily_limit_caps_actual_model_calls_not_run_requests(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    import web.app as web_app
+
+    class ManyCallLLM:
+        live_calls = 0
+
+        def __init__(self, replay=False, on_live_call=None):
+            self.replay = replay
+            self.on_live_call = on_live_call
+            self.calls = 0
+
+        def complete(self, *_args, **_kwargs):
+            self.calls += 1
+            if not self.replay:
+                assert self.on_live_call()
+                type(self).live_calls += 1
+            return {
+                "choices": [{
+                    "message": {
+                        "tool_calls": [{
+                            "id": f"call-{self.calls}",
+                            "type": "function",
+                            "function": {
+                                "name": "inbox_list",
+                                "arguments": '{"unread_only":true}',
+                            },
+                        }]
+                    }
+                }]
+            }
+
+    monkeypatch.setattr(
+        web_app, "load_env", lambda path=None: {
+            "LLM_API_KEY": "test-only",
+            "DEMO_DAILY_RUNS": "8",
+        }
+    )
+    monkeypatch.setattr(web_app, "LLM", ManyCallLLM)
+    ManyCallLLM.live_calls = 0
+    client = TestClient(create_app(passcode="", replay=False))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = [
+            pool.submit(
+                client.post,
+                "/api/run",
+                json={"request": DEMO_REQUEST, "guarded": False},
+            )
+            for _ in range(2)
+        ]
+        assert [response.result().status_code for response in pending] == [200, 200]
+
+    assert ManyCallLLM.live_calls <= 8
+
+
+def test_cache_hits_do_not_spend_the_live_model_call_budget(monkeypatch):
+    import web.app as web_app
+
+    class CacheHitLLM:
+        def __init__(self, replay=False, on_live_call=None):
+            self.replay = replay
+            self.on_live_call = on_live_call
+
+        def complete(self, *_args, **_kwargs):
+            return {"choices": [{"message": {"content": "recorded answer"}}]}
+
+    monkeypatch.setattr(
+        web_app, "load_env", lambda path=None: {
+            "LLM_API_KEY": "test-only",
+            "DEMO_DAILY_RUNS": "8",
+        }
+    )
+    monkeypatch.setattr(web_app, "LLM", CacheHitLLM)
+    client = TestClient(create_app(passcode="", replay=False))
+
+    for _ in range(8):
+        response = client.post(
+            "/api/run", json={"request": DEMO_REQUEST, "guarded": False}
+        )
+        assert response.status_code == 200
+
+    assert client.get("/api/config").json()["replay_only"] is False
+
+
+def test_small_remaining_budget_replays_before_starting_a_live_run(monkeypatch):
+    import web.app as web_app
+
+    class TrackingLLM:
+        live_calls = 0
+
+        def __init__(self, replay=False, on_live_call=None):
+            self.replay = replay
+            self.on_live_call = on_live_call
+
+        def complete(self, *_args, **_kwargs):
+            if not self.replay:
+                assert self.on_live_call()
+                type(self).live_calls += 1
+            return {"choices": [{"message": {"content": "recorded answer"}}]}
+
+    monkeypatch.setattr(
+        web_app, "load_env", lambda path=None: {
+            "LLM_API_KEY": "test-only",
+            "DEMO_DAILY_RUNS": "7",
+        }
+    )
+    monkeypatch.setattr(web_app, "LLM", TrackingLLM)
+    client = TestClient(create_app(passcode="", replay=False))
+
+    assert client.get("/api/config").json()["replay_only"] is True
+    events = lines(
+        client.post("/api/run", json={"request": DEMO_REQUEST, "guarded": False})
+    )
+    assert events[-1]["error"] == ""
+    assert TrackingLLM.live_calls == 0
+
+
+def test_concurrent_runs_are_bounded_even_when_they_hit_the_replay_cache(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event, Lock
+
+    import web.app as web_app
+
+    started = Event()
+    release = Event()
+    lock = Lock()
+    calls = 0
+
+    class BlockingLLM:
+        def __init__(self, replay=False, on_live_call=None):
+            pass
+
+        def complete(self, *_args, **_kwargs):
+            nonlocal calls
+            with lock:
+                calls += 1
+                if calls >= 8:
+                    started.set()
+            release.wait(2)
+            return {"choices": [{"message": {"content": "done"}}]}
+
+    monkeypatch.setattr(
+        web_app, "load_env", lambda path=None: {"DEMO_DAILY_RUNS": "200"}
+    )
+    monkeypatch.setattr(web_app, "LLM", BlockingLLM)
+    client = TestClient(create_app(passcode="", replay=True))
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        pending = [
+            pool.submit(
+                client.post,
+                "/api/run",
+                json={"request": DEMO_REQUEST, "guarded": False},
+            )
+            for _ in range(8)
+        ]
+        assert started.wait(3)
+        overflow = client.post(
+            "/api/run", json={"request": DEMO_REQUEST, "guarded": False}
+        )
+        release.set()
+        assert overflow.status_code == 503
+        assert [response.result().status_code for response in pending] == [200] * 8
+    assert client.post(
+        "/api/run", json={"request": DEMO_REQUEST, "guarded": False}
+    ).status_code == 200
+
+
+def test_disconnected_response_keeps_its_worker_slot_until_work_finishes():
+    from threading import BoundedSemaphore
+
+    from web.app import RunSlot
+
+    slots = BoundedSemaphore(1)
+    assert slots.acquire(blocking=False)
+    slot = RunSlot(slots)
+    slot.worker_started()
+
+    slot.release_if_unstarted()
+    assert slots.acquire(blocking=False) is False
+
+    slot.release()
+    assert slots.acquire(blocking=False)

@@ -49,6 +49,35 @@ This is an advisory/source recheck of the six direct pins. A fresh `pip-audit -r
 - `pip-audit` found no known vulnerabilities for the resolved requirements at review time, but there is no committed lockfile. Future transitive dependency resolution can change.
 - No real model-provider run or ONNX detector run was performed in this recheck; those require credentials and local model snapshots.
 
+## Phase 2 Web and Security Recheck (2026-10-09)
+
+**Base:** `origin/main` at `acbe99b`, with fixes on `codex/phase2-e2e-hardening`.
+The public deployment was not changed by this local code review.
+
+### Findings fixed in this pass
+
+1. **The default offline demo had stale replay keys.** Seven existing web tests failed before any tool step because the shipped cache did not match Phase 2's current prompt and tool schema. Added nine fixed synthetic response entries for the built-in request, documented their replay behavior in the README, and retained the replay-miss error for uncached custom requests.
+2. **Malformed `Host` could bypass API authentication on the pinned Starlette 0.49.3.** A regression probe returned `200` for `/api/config` without its passcode when `Host` included a path. The middleware now checks `scope["path"]`, which remains the path actually routed. The regression fails on the old framework and passes on both old and patched versions after the code fix. FastAPI/Starlette were also upgraded to 0.143.0/1.7.0, covering upstream fixes including the Windows `StaticFiles` UNC-path issue ([GHSA-86qp-5c8j-p5mr](https://github.com/Kludex/starlette/security/advisories/GHSA-86qp-5c8j-p5mr), [GHSA-wqp7-x3pw-xc5r](https://github.com/Kludex/starlette/security/advisories/GHSA-wqp7-x3pw-xc5r)).
+3. **Caller-controlled `approve=true` auto-approved ASK decisions.** Removed that request field and reject unknown request fields; approval remains an explicit agent API decision.
+4. **API bodies had no raw size ceiling.** Added a 32 KiB ASGI limit for both content-length and chunked bodies. Oversized bodies now receive `413` before JSON parsing.
+5. **The daily ceiling counted HTTP runs instead of provider calls.** A run can make up to eight calls, while cache hits cost nothing. Live runs now reserve all eight possible calls atomically, charge only uncached provider calls, and return unused reservations. If fewer than eight remain, the request switches to replay before starting a provider call, so it cannot stop halfway through from exhausting the budget.
+6. **Public request state could grow without bound or run without a global cap.** The per-address table is limited to 4,096 recent keys and active runs are limited to eight per process. A disconnected browser does not free a slot while its worker is still running. API responses now use `Cache-Control: no-store`, and run IDs use 128 random bits.
+
+### Verification
+
+- The full pytest suite passes with the pinned dev requirements. The new Host-header regression was reproduced as a failure on Starlette 0.49.3, then passed after switching the middleware check to the raw ASGI path.
+- Playwright 1.63 with Edge passed the local browser flow: the undefended side showed the synthetic breach, the guarded side stopped it, muffling appeared, and the audit chain stayed intact. A hostile HTML request created no image or script execution. The UI/API probes also verified `422` for `approve=true`, `413` for a 40 KiB JSON body, `no-store`, and a `429` after the request limit. No browser console or page errors occurred.
+- `pip-audit --local` reported no known vulnerabilities in the resolved test/runtime environment after upgrading the web framework and test client.
+- The replay additions contain no credential-shaped strings. No live provider request was made because this environment has no model key.
+
+### Phase 2 residual risks
+
+- Rate limit, daily call budget, and eight-run concurrency cap are process-local. Multiple workers or replicas multiply those limits; use one worker/replica or a shared store before scaling out.
+- A live run reserves eight call slots even if it uses fewer; up to seven daily slots can remain unused near the limit. This favors a complete run and a hard call ceiling over spending the last partial allowance.
+- The last checked public deployment had `passcode_required=false` and `tamper_enabled=true`. This is suitable only for the intentionally public demo: visitors can call the model within its daily budget and invoke the audit-corruption demonstration. Set a passcode and disable tampering for a non-demo deployment.
+- `TRUST_PROXY=1` trusts the first `X-Forwarded-For` value. Enable it only when the front proxy overwrites that header; otherwise client-supplied values can bypass per-address throttling.
+- The provider path and real ONNX snapshots were not exercised here; the API budget was verified with a local fake provider.
+
 ## Original Findings (pre-fix snapshot)
 
 ### 1. [Fixed] High: URL query/path data was not inspected for secrets

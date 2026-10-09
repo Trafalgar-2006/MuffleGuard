@@ -17,14 +17,15 @@ import secrets
 import threading
 import time
 import uuid
-from collections import OrderedDict, defaultdict, deque
+from collections import OrderedDict, deque
 from datetime import date
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from starlette.background import BackgroundTask
 
 from muffleguard.audit import AuditLog
 from muffleguard.guard import Guard
@@ -34,6 +35,9 @@ from sandbox.tools import SPECS
 from sandbox.world import DEMO_REQUEST, World
 
 STATIC = Path(__file__).resolve().parent / "static"
+MAX_API_BODY = 32 * 1024
+MAX_AGENT_STEPS = 8
+MAX_ACTIVE_RUNS = 8
 
 # One page, one script, one stylesheet, all served from here. No inline script
 # or style, so the policy below can forbid both outright.
@@ -44,11 +48,12 @@ CSP = (
 
 
 class RunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     request: str = Field(default=DEMO_REQUEST, max_length=2000)
     guarded: bool = True
     muffle: bool = True
     detector: bool = False
-    approve: bool = False  # what a human chose when the guard asked
 
     @field_validator("request")
     @classmethod
@@ -96,58 +101,162 @@ class DailyBudget:
     The per-IP rate limit bounds one visitor; it does nothing about a thousand
     of them, or a crawler that finds the link. This bounds the bill instead of
     the visitor. Reaching it does not break the demo: the run falls back to the
-    recorded one, which is what most visitors press anyway.
+    recorded one, which is what most visitors press anyway. shortcut: process-local;
+    use shared storage before adding workers or replicas.
     """
 
     def __init__(self, limit: int) -> None:
         self.limit = limit
         self.day = date.today()
         self.spent = 0
+        self.reserved = 0
         self.lock = threading.Lock()
 
-    def take(self) -> bool:
+    def reserve(self, calls: int) -> DailyBudgetLease | None:
         with self.lock:
-            today = date.today()
-            if today != self.day:
-                self.day, self.spent = today, 0
-            if self.spent >= self.limit:
-                return False
-            self.spent += 1
-            return True
+            self._rollover()
+            available = self.limit - self.spent - self.reserved
+            if available < calls:
+                return None
+            self.reserved += calls
+            return DailyBudgetLease(self, calls)
+
+    def _rollover(self) -> None:
+        today = date.today()
+        if today != self.day:
+            self.day, self.spent, self.reserved = today, 0, 0
 
     @property
     def remaining(self) -> int:
         with self.lock:
-            return max(0, self.limit - self.spent) if date.today() == self.day else self.limit
+            self._rollover()
+            return max(0, self.limit - self.spent - self.reserved)
+
+
+class DailyBudgetLease:
+    def __init__(self, budget: DailyBudget, calls: int) -> None:
+        self.budget = budget
+        self.calls = calls
+        self.day = budget.day
+
+    def take(self) -> bool:
+        with self.budget.lock:
+            self.budget._rollover()
+            if self.day != self.budget.day or self.calls == 0:
+                return False
+            self.calls -= 1
+            self.budget.reserved -= 1
+            self.budget.spent += 1
+            return True
+
+    def release(self) -> None:
+        with self.budget.lock:
+            self.budget._rollover()
+            if self.day == self.budget.day:
+                self.budget.reserved -= self.calls
+            self.calls = 0
 
 
 class RateLimiter:
     """A fixed window per client address.
 
-    ponytail: in-process and in-memory, so it resets on redeploy and does not
-    span replicas. Enough for one demo box; a shared store if it ever scales.
+    shortcut: the 4096 most recent addresses only; address churn can evict a
+    counter. Use shared storage before scaling beyond one process.
     """
 
     def __init__(self, limit: int, window: float = 60.0) -> None:
         self.limit = limit
         self.window = window
-        self.seen: dict[str, deque] = defaultdict(deque)
+        self.seen: OrderedDict[str, deque] = OrderedDict()
         self.lock = threading.Lock()
 
     def allow(self, client: str) -> bool:
         now = time.monotonic()
         with self.lock:
-            hits = self.seen[client]
+            hits = self.seen.pop(client, None)
+            if hits is None:
+                if len(self.seen) >= 4096:
+                    self.seen.popitem(last=False)
+                hits = deque()
             while hits and now - hits[0] > self.window:
                 hits.popleft()
-            # Drop clients that have gone quiet, or the table grows by one
-            # entry per address seen, for as long as the process lives.
-            for address in [a for a, h in self.seen.items() if not h and a != client]:
-                del self.seen[address]
+            self.seen[client] = hits
             if len(hits) >= self.limit:
                 return False
             hits.append(now)
             return True
+
+
+class RunSlot:
+    def __init__(self, slots: threading.BoundedSemaphore) -> None:
+        self.slots = slots
+        self.started = False
+        self.released = False
+        self.lock = threading.Lock()
+
+    def worker_started(self) -> bool:
+        with self.lock:
+            if self.released:
+                return False
+            self.started = True
+            return True
+
+    def release_if_unstarted(self) -> None:
+        with self.lock:
+            unstarted = not self.started
+        if unstarted:
+            self.release()
+
+    def release(self) -> None:
+        with self.lock:
+            if self.released:
+                return
+            self.released = True
+        self.slots.release()
+
+
+class RequestBodyLimit:
+    """Bound API bodies before JSON parsing, including chunked requests."""
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http" or not scope["path"].startswith("/api/"):
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope["headers"])
+        length = headers.get(b"content-length")
+        if length:
+            try:
+                if int(length) > MAX_API_BODY:
+                    await _json(413, {"detail": "request body is too large"})(scope, receive, send)
+                    return
+            except ValueError:
+                await _json(400, {"detail": "invalid content length"})(scope, receive, send)
+                return
+
+        messages = []
+        size = 0
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            messages.append(message)
+            size += len(message.get("body", b""))
+            if size > MAX_API_BODY:
+                await _json(413, {"detail": "request body is too large"})(scope, receive, send)
+                return
+            if not message.get("more_body", False):
+                break
+
+        async def replay_body():
+            if messages:
+                return messages.pop(0)
+            return await receive()
+
+        await self.app(scope, replay_body, send)
 
 
 def create_app(
@@ -174,8 +283,11 @@ def create_app(
         trust_proxy = env.get("TRUST_PROXY", "") == "1"
 
     app = FastAPI(title="MuffleGuard Attack Lab", docs_url=None, redoc_url=None)
+    app.add_middleware(RequestBodyLimit)
     limiter = RateLimiter(rate_limit)
     budget = DailyBudget(int(env.get("DEMO_DAILY_RUNS", "200")))
+    # shortcut: this cap is per worker; use a shared limiter when scaling out.
+    active_runs = threading.BoundedSemaphore(MAX_ACTIVE_RUNS)
     # One audit log per run, keyed by the id handed to the page that started it.
     # A single shared log would be overwritten by whoever ran last, so two
     # people opening the demo at once would each see the other's decisions.
@@ -183,7 +295,7 @@ def create_app(
 
     @app.middleware("http")
     async def secure(request: Request, call_next):
-        if request.url.path.startswith("/api/"):
+        if request.scope["path"].startswith("/api/"):
             # Rate limit first. Checking the passcode first would leave wrong
             # guesses uncounted, so the only authentication on the API could be
             # guessed at as fast as the network allowed.
@@ -205,18 +317,21 @@ def create_app(
             "request": DEMO_REQUEST,
             "passcode_required": bool(passcode),
             "tamper_enabled": allow_tamper,
-            "replay_only": replay or budget.remaining == 0,
+            "replay_only": replay or budget.remaining < MAX_AGENT_STEPS,
             "model": env.get("LLM_MODEL", "openai/gpt-4o-mini"),
         }
 
     @app.post("/api/run")
-    def run(body: RunRequest) -> StreamingResponse:
-        # A cached run costs nothing, so it never touches the budget. Only a
-        # run that would actually call the model does, and once the day's
-        # allowance is gone the rest fall back to the recording.
-        live = not replay and budget.take()
+    def run(body: RunRequest):
+        if not active_runs.acquire(blocking=False):
+            return _json(503, {"detail": "too many active runs; retry shortly"})
+        slot = RunSlot(active_runs)
+        # Reserve all eight possible calls before starting; cache hits cost nothing.
+        lease = None if replay else budget.reserve(MAX_AGENT_STEPS)
         return StreamingResponse(
-            _stream(body, runs, replay=not live), media_type="application/x-ndjson"
+            _stream(body, runs, replay=lease is None, lease=lease, slot=slot),
+            media_type="application/x-ndjson",
+            background=BackgroundTask(slot.release_if_unstarted),
         )
 
     @app.get("/api/audit")
@@ -277,6 +392,7 @@ def _harden(response):
     response.headers["x-frame-options"] = "DENY"
     response.headers["referrer-policy"] = "no-referrer"
     response.headers["permissions-policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["cache-control"] = "no-store"
     return response
 
 
@@ -320,7 +436,13 @@ def _json(status: int, body: dict):
     return JSONResponse(status_code=status, content=body)
 
 
-def _stream(body: RunRequest, runs: RunRegistry, replay: bool):
+def _stream(
+    body: RunRequest,
+    runs: RunRegistry,
+    replay: bool,
+    slot: RunSlot,
+    lease: DailyBudgetLease | None = None,
+):
     """Run the agent on a worker thread and yield each step as it is produced.
 
     The agent loop is synchronous, so a thread plus a queue is what turns it
@@ -333,7 +455,7 @@ def _stream(body: RunRequest, runs: RunRegistry, replay: bool):
         if body.guarded
         else None
     )
-    run_id = uuid.uuid4().hex[:12]
+    run_id = uuid.uuid4().hex
     if guard is not None:
         runs.add(run_id, guard.audit)
 
@@ -345,8 +467,7 @@ def _stream(body: RunRequest, runs: RunRegistry, replay: bool):
                 body.request,
                 world=world,
                 guard=guard,
-                llm=LLM(replay=replay),
-                approve=(lambda *_: True) if body.approve else None,
+                llm=LLM(replay=replay, on_live_call=lease.take if lease else None),
                 on_step=steps.put,
             )
         except LLMError as exc:
@@ -354,10 +475,21 @@ def _stream(body: RunRequest, runs: RunRegistry, replay: bool):
         except Exception as exc:  # a bug here must not hang the page
             result["error"] = _scrub(f"{type(exc).__name__}: {exc}")
         finally:
+            if lease is not None:
+                lease.release()
+            slot.release()
             steps.put(None)
 
     worker = threading.Thread(target=work, daemon=True)
-    worker.start()
+    if not slot.worker_started():
+        return
+    try:
+        worker.start()
+    except Exception:
+        if lease is not None:
+            lease.release()
+        slot.release()
+        raise
 
     # The id goes out first, so the page can ask for this run's log by name
     # even if the run then fails.
