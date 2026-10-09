@@ -143,8 +143,8 @@ p { margin: 0 0 1em; }
   border-left: 3px solid var(--color-accent);
   background: var(--color-accent-100);
   color: var(--color-accent-700);
-  opacity: 0; transform: translateY(-4px);
 }
+.js .mail__hidden { opacity: 0; transform: translateY(-4px); }
 .mail__tag {
   display: inline-block; margin-top: 10px; padding: 4px 8px;
   background: var(--color-text); color: var(--color-bg);
@@ -210,7 +210,8 @@ p { margin: 0 0 1em; }
   font-family: var(--mono); font-size: 13px; line-height: 1.7;
   padding: 18px; overflow-x: auto;
 }
-.term .l { display: block; white-space: pre; opacity: 0; }
+.term .l { display: block; white-space: pre; }
+.js .term .l { opacity: 0; }
 .term .dim { color: #8b827a; }
 .term .bad { color: #ff6b5a; }
 .term .good { color: #5fd49a; }
