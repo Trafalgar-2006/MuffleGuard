@@ -112,3 +112,89 @@ def test_every_run_is_recorded_for_inspection():
     )
     assert len(result.runs) == 2 + 1  # two attacks, plus the clean utility run
     assert all(r.task and r.condition for r in result.runs)
+
+
+def test_the_benign_world_really_has_no_attacks():
+    """A control run in the demo world is not a control: it ships three attacks."""
+    from sandbox.world import ATTACKER, ATTACKER_HOST, World, benign_world
+
+    assert [e.id for e in World().emails if e.attack], "the demo world should carry attacks"
+
+    clean = benign_world()
+    text = " ".join(f"{e.subject} {e.body}" for e in clean.emails) + " ".join(clean.pages.values())
+    assert ATTACKER not in text
+    assert ATTACKER_HOST not in text
+    assert not [e for e in clean.emails if e.attack]
+
+
+def test_planting_one_attack_leaves_exactly_one():
+    """Attribution per attack is only sound if the others are not also present."""
+    from sandbox.world import ATTACKER, ATTACKER_HOST
+
+    from muffleguard.normalize import tags_to_ascii
+
+    for attack in ATTACKS:
+        world = attack.plant()
+        text = " ".join(f"{e.subject} {e.body}" for e in world.emails)
+        text += " ".join(world.pages.values())
+        # One attack hides its payload in invisible Unicode, so count what the
+        # model reads rather than what the characters literally say.
+        text += tags_to_ascii(text)
+        hits = text.count(ATTACKER) + text.count(ATTACKER_HOST)
+        assert hits == 1, f"{attack.name} planted {hits} payloads; a breach must be attributable"
+
+
+# --- the deterministic worst-case adversary ---------------------------------
+
+
+def test_the_adversary_exfiltrates_when_nothing_stops_it():
+    """If this ever stops breaching undefended, the suite measures nothing."""
+    from evaluation.adversary import ObedientAdversary
+    from sandbox.agent import run_agent
+
+    for attack in ATTACKS:
+        result = run_agent(
+            TASKS[0], world=attack.plant(), guard=None, llm=ObedientAdversary(), max_steps=12
+        )
+        assert result.breached, f"{attack.name} did not reach the attacker undefended"
+
+
+def test_the_adversary_cannot_act_on_an_instruction_it_never_saw():
+    """It reads only what the guard let through, so muffling really stops it.
+
+    Without this the adversary would be a script that exfiltrates regardless,
+    and every condition would score the same.
+    """
+    from evaluation.adversary import ObedientAdversary
+    from muffleguard.guard import Guard
+    from sandbox.agent import run_agent
+    from sandbox.tools import SPECS
+
+    guard = Guard(tools=SPECS, detector=None, muffle=True)
+    try:
+        result = run_agent(
+            TASKS[0], world=ATTACKS[0].plant(), guard=guard, llm=ObedientAdversary(), max_steps=12
+        )
+    finally:
+        guard.close()
+
+    assert not result.breached
+    assert not result.blocked_calls, "muffled: there should be nothing left to block"
+
+
+def test_the_adversary_is_stopped_by_the_policy_when_it_does_act():
+    from evaluation.adversary import ObedientAdversary
+    from muffleguard.guard import Guard
+    from sandbox.agent import run_agent
+    from sandbox.tools import SPECS
+
+    guard = Guard(tools=SPECS, detector=None, muffle=False)
+    try:
+        result = run_agent(
+            TASKS[0], world=ATTACKS[0].plant(), guard=guard, llm=ObedientAdversary(), max_steps=12
+        )
+    finally:
+        guard.close()
+
+    assert not result.breached
+    assert result.blocked_calls, "with nothing muffled it should try, and be refused"

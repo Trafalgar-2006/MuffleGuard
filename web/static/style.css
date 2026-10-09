@@ -159,6 +159,7 @@ button.danger { color: var(--breach); }
 .score td.good { color: var(--hold); }
 .score td.bad { color: var(--breach); }
 .score .ci { color: var(--quiet); }
+.score .instrument { color: var(--muffle); }
 .score tr.highlight td { background: rgba(61, 214, 140, .07); }
 .score th { white-space: normal; }
 

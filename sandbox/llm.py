@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -163,7 +164,11 @@ class LLM:
         data = response.json()
         if self.use_cache:
             CACHE_DIR.mkdir(exist_ok=True)
-            cached.write_text(json.dumps(data), encoding="utf-8")
+            # Written beside the target and moved into place, so parallel
+            # runs cannot leave a half-written file the demo later replays.
+            temporary = cached.with_suffix(f".{os.getpid()}-{threading.get_ident()}.tmp")
+            temporary.write_text(json.dumps(data), encoding="utf-8")
+            os.replace(temporary, cached)
         return data
 
     @staticmethod

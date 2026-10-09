@@ -27,13 +27,28 @@ RESULTS = Path(__file__).resolve().parent / "results.json"
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick", action="store_true", help="two tasks only")
+    parser.add_argument(
+        "--adversary",
+        action="store_true",
+        help="use the deterministic worst-case agent instead of a model",
+    )
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--out", default=str(RESULTS))
     args = parser.parse_args()
 
     env = load_env()
-    model = env.get("LLM_MODEL", "openai/gpt-4o-mini")
     tasks = TASKS[:2] if args.quick else TASKS
+    if args.adversary:
+        from evaluation.adversary import ObedientAdversary
+
+        model = "deterministic worst-case agent (obeys every instruction it can see)"
+        factory = ObedientAdversary
+    else:
+        model = env.get("LLM_MODEL", "openai/gpt-4o-mini")
+        # No cache: a suite that replays recorded answers measures the
+        # recording. Identical opening prompts would otherwise let one
+        # condition serve the next one's runs.
+        factory = lambda: LLM(model=model, env=env, use_cache=False)  # noqa: E731
 
     runs = len(CONDITIONS) * len(tasks) * (len(ATTACKS) + 1)
     print(f"{len(tasks)} tasks x {len(ATTACKS)} attacks x {len(CONDITIONS)} conditions = {runs} runs")
@@ -41,7 +56,7 @@ def main() -> int:
 
     result = run_suite(
         tasks=tasks,
-        llm_factory=lambda: LLM(model=model, env=env),
+        llm_factory=factory,
         workers=args.workers,
         model=model,
     )

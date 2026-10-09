@@ -226,11 +226,16 @@ async function loadScorecard() {
   const data = await response.json();
 
   $("score").hidden = false;
-  $("score-note").textContent =
-    `${data.runs} runs: ${data.tasks} ordinary tasks against ${data.attacks} attacks, ` +
-    `each under three defences. Model ${data.model}, recorded ${data.generated}. ` +
-    `Ranges are 95% Wilson intervals` +
-    (data.errored ? `; ${data.errored} run(s) failed to reach the model and are counted as not breached.` : ".");
+  const note = $("score-note");
+  note.textContent =
+    `${data.runs} runs: ${data.tasks} ordinary tasks against ${data.attacks} attack deliveries, ` +
+    `each under three defences. Recorded ${data.generated}. Ranges are 95% Wilson intervals` +
+    (data.errored ? `; ${data.errored} run(s) never reached the model and are excluded.` : ".");
+
+  const what = document.createElement("span");
+  what.className = "instrument";
+  what.textContent = ` Agent: ${data.model}.`;
+  note.appendChild(what);
 
   const body = $("score-table").querySelector("tbody");
   body.textContent = "";
@@ -317,8 +322,8 @@ async function main() {
   $("model-note").textContent = `Agent model: ${config.model}`;
   $("tamper").hidden = !config.tamper_enabled;
 
-  await loadScorecard();
-
+  // Wire the controls first: a scorecard that fails to load must not leave
+  // the page without a working Run button.
   $("controls").addEventListener("submit", runBoth);
   $("verify").addEventListener("click", loadAudit);
   $("tamper").addEventListener("click", async () => {
@@ -339,6 +344,8 @@ async function main() {
     }
     await loadAudit();
   });
+
+  loadScorecard().catch(() => {});
 }
 
 main();
