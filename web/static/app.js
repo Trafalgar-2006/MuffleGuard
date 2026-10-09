@@ -21,21 +21,48 @@ function headers() {
   return head;
 }
 
-async function askForPasscode() {
-  const pass = window.prompt("This demo is passcode protected. Enter the passcode:");
-  if (pass) sessionStorage.setItem(PASSCODE_KEY, pass);
-  return Boolean(pass);
+async function askForPasscode(message = "") {
+  const dialog = $("passcode-dialog");
+  const form = $("passcode-form");
+  const input = $("passcode-input");
+  const error = $("passcode-error");
+  input.value = "";
+  error.textContent = message;
+  error.hidden = !message;
+
+  return new Promise((resolve) => {
+    const close = () => {
+      form.removeEventListener("submit", submit);
+      $("passcode-cancel").removeEventListener("click", cancel);
+      resolve(dialog.returnValue === "unlock");
+    };
+    const submit = (event) => {
+      event.preventDefault();
+      sessionStorage.setItem(PASSCODE_KEY, input.value);
+      dialog.close("unlock");
+    };
+    const cancel = () => dialog.close("cancel");
+    form.addEventListener("submit", submit);
+    $("passcode-cancel").addEventListener("click", cancel);
+    dialog.addEventListener("close", close, { once: true });
+    dialog.showModal();
+    input.focus();
+  });
 }
 
 /** Read an NDJSON stream, handing each complete object to onEvent. */
 async function stream(body, onEvent) {
   let response = await fetch("/api/run", { method: "POST", headers: headers(), body: JSON.stringify(body) });
-  if (response.status === 401 && (await askForPasscode())) {
+  if (response.status === 401) {
+    if (!(await askForPasscode())) {
+      onEvent({ type: "done", error: "The demo passcode is required to run this comparison." });
+      return false;
+    }
     response = await fetch("/api/run", { method: "POST", headers: headers(), body: JSON.stringify(body) });
   }
   if (!response.ok) {
-    onEvent({ type: "done", error: `The server refused the run (${response.status}).` });
-    return;
+    onEvent({ type: "done", error: response.status === 401 ? "The passcode was not accepted." : `The server refused the run (${response.status}).` });
+    return true;
   }
 
   const reader = response.body.getReader();
@@ -49,7 +76,9 @@ async function stream(body, onEvent) {
     buffer = lines.pop();
     for (const line of lines) if (line.trim()) onEvent(JSON.parse(line));
   }
+  buffer += decoder.decode();
   if (buffer.trim()) onEvent(JSON.parse(buffer));
+  return true;
 }
 
 /* ---- rendering ---- */
@@ -228,8 +257,8 @@ async function loadScorecard() {
   $("score").hidden = false;
   const note = $("score-note");
   note.textContent =
-    `${data.runs} runs: ${data.tasks} ordinary tasks against ${data.attacks} attack deliveries, ` +
-    `each under three defences. Recorded ${data.generated}. Ranges are 95% Wilson intervals` +
+    `${data.runs} runs: ${data.tasks} tasks x (${data.attacks} attacks + one clean control) ` +
+    `across three defences. Recorded ${data.generated}. Ranges are 95% Wilson intervals` +
     (data.errored ? `; ${data.errored} run(s) never reached the model and are excluded.` : ".");
 
   const what = document.createElement("span");
@@ -265,66 +294,102 @@ async function runBoth(event) {
   event.preventDefault();
   const button = $("run");
   button.disabled = true;
+  button.setAttribute("aria-busy", "true");
   button.textContent = "Running";
   $("empty").hidden = true;
+  $("run-status").classList.remove("is-error");
+  $("run-status").textContent = "Starting the unguarded baseline...";
 
   const request = $("request").value.trim() || config.request;
   const options = { request, muffle: $("muffle").checked, detector: $("detector").checked };
 
   try {
     await runSides(options);
+  } catch {
+    $("run-status").classList.add("is-error");
+    $("run-status").textContent = "The comparison could not be completed.";
   } finally {
+    button.removeAttribute("aria-busy");
     button.disabled = false;
     button.textContent = "Run both";
   }
 }
 
 async function runSides(options) {
+  let failed = false;
   for (const side of ["unguarded", "guarded"]) {
     const list = $(`trace-${side}`);
+    $("run-status").textContent = side === "unguarded"
+      ? "Running the unguarded baseline..."
+      : "Running the guarded agent...";
     list.textContent = "";
     $(`outcome-${side}`).textContent = "";
     $(`side-${side}`).classList.remove("breached", "held");
 
-    await stream({ ...options, guarded: side === "guarded" }, (event) => {
+    const continued = await stream({ ...options, guarded: side === "guarded" }, (event) => {
       if (event.type === "start") {
         if (event.guarded) lastRunId = event.run_id;
       } else if (event.type === "step") renderStep(list, event);
-      else renderOutcome(side, event);
+      else {
+        renderOutcome(side, event);
+        if (event.error) failed = true;
+      }
     });
+    if (!continued) break;
   }
 
   await loadAudit();
+  $("run-status").classList.toggle("is-error", failed);
+  $("run-status").textContent = failed
+    ? "One or more runs failed. Check the messages in each trace."
+    : "Both runs finished. Compare the traces and outcomes above.";
 }
 
 async function main() {
+  let response;
   try {
-    const response = await fetch("/api/config", { headers: headers() });
-    if (response.status === 401 && (await askForPasscode())) return main();
+    let message = "";
+    response = await fetch("/api/config", { headers: headers() });
+    while (response.status === 401) {
+      if (!(await askForPasscode(message))) {
+        $("run-mode-label").textContent = "Passcode required";
+        $("run-status").textContent = "Unlock the demo before starting a run.";
+        return;
+      }
+      response = await fetch("/api/config", { headers: headers() });
+      message = response.status === 401 ? "That passcode was not accepted. Try again." : "";
+    }
+    if (!response.ok) throw new Error("configuration request failed");
     config = await response.json();
   } catch {
     config = { request: "", model: "unknown", tamper_enabled: false };
+    $("run-status").classList.add("is-error");
+    $("run-status").textContent = "Could not load the demo configuration.";
   }
 
   const field = $("request");
   const reset = $("reset-request");
-  // A browser that restored a previous value would otherwise leave the demo
   // loaded with a request it cannot answer, which reads as the app being broken.
   const useDemoRequest = () => {
     field.value = config.request || "";
     reset.hidden = true;
   };
+  const mode = $("run-mode");
+  const modeLabel = $("run-mode-label");
+  mode.classList.toggle("is-replay", Boolean(config.replay_only));
+  mode.classList.toggle("is-live", !config.replay_only);
+  modeLabel.textContent = config.replay_only ? "Recorded replay" : "Live model available";
   useDemoRequest();
   window.addEventListener("pageshow", useDemoRequest);
   field.addEventListener("input", () => {
     reset.hidden = field.value.trim() === (config.request || "").trim();
   });
   reset.addEventListener("click", useDemoRequest);
-  if (config.replay_only) {
-    const note = $("request-note");
-    note.hidden = false;
-    note.textContent = "This demo replays a recorded run, so only this request works here. Run it locally with a model key to try your own.";
-  }
+  const note = $("request-note");
+  note.hidden = false;
+  note.textContent = config.replay_only
+    ? "This demo replays a recorded run, so only this request works here. Run it locally with a model key to try your own."
+    : "The supplied request uses a recorded demo; custom requests use the configured live model.";
   $("model-note").textContent = `Agent model: ${config.model}`;
   $("tamper").hidden = !config.tamper_enabled;
 

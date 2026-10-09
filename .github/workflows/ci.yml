@@ -24,6 +24,9 @@ jobs:
       - name: Tests
         run: python -m pytest
 
+      - name: Browser script syntax
+        run: node --check web/static/app.js
+
       - name: The offline demo still breaches undefended and holds defended
         # No key here, so this also proves the committed fixtures replay on a
         # machine that has never recorded anything.

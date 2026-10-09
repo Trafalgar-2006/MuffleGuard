@@ -133,7 +133,8 @@ that needs credit on the configured provider.
 The guard checks calls from the model to tools. The configured model provider
 still receives the user's request and each tool result sent back to the model;
 only use data that provider is approved to process. The general `LLM` client does
-not cache responses by default. `hero_attack.py` opts into its local response
+not cache responses by default; set `LLM_CACHE=1` only when you want live
+responses written to local disk. `hero_attack.py` opts into its local response
 cache for the synthetic demo; `--no-cache` disables it. Cache responses may
 contain user data, so keep live data out of the demo cache and out of Git.
 
