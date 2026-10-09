@@ -82,3 +82,24 @@ def test_the_cache_is_on_by_default(monkeypatch, tmp_path):
     llm.complete([Message("user", "hello")])
 
     assert list(tmp_path.iterdir()), "a response should have been recorded"
+
+
+def test_the_committed_fixtures_are_actually_committed():
+    """The offline demo is served from these, so they must be in the repo.
+
+    They were once written into a git-ignored directory, so every test passed
+    on the machine that recorded them and seven failed on a fresh clone.
+    """
+    import subprocess
+
+    from sandbox.llm import DEMO_CACHE
+
+    recorded = sorted(p.name for p in DEMO_CACHE.glob("*.json"))
+    assert recorded, "no demo fixtures recorded; run tools/warm_cache.py"
+
+    tracked = subprocess.run(
+        ["git", "ls-files", "demo_cache"],
+        capture_output=True, text=True, cwd=DEMO_CACHE.parent,
+    ).stdout.split()
+    tracked_names = sorted(name.split("/")[-1] for name in tracked)
+    assert tracked_names == recorded, "demo fixtures exist but are not tracked by git"

@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from muffleguard.guard import Guard  # noqa: E402
 from sandbox.agent import run_agent  # noqa: E402
+from sandbox import llm as llm_module  # noqa: E402
 from sandbox.llm import LLM  # noqa: E402
 from sandbox.tools import SPECS  # noqa: E402
 from sandbox.world import DEMO_REQUEST, World  # noqa: E402
@@ -28,6 +29,10 @@ COMBINATIONS = [
 
 
 def main() -> int:
+    # Record into the committed fixtures, not the scratch cache, or the
+    # demo works on this machine and nowhere else.
+    llm_module.DEMO_CACHE.mkdir(exist_ok=True)
+    llm_module.CACHE_DIR = llm_module.DEMO_CACHE
     for name, muffle, detector in COMBINATIONS:
         guard = (
             None
@@ -39,7 +44,7 @@ def main() -> int:
             "breached" if result.breached else "held"
         )
         print(f"  {name:24s} {status}")
-    print("cache warmed; commit .llm_cache")
+    print("recorded into demo_cache; commit it")
     return 0
 
 

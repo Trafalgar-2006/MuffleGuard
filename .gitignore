@@ -10,3 +10,6 @@ __pycache__/
 
 .venv/
 .models/
+
+# Ad-hoc responses stay out of git; the demo fixtures live in demo_cache/.
+.llm_cache/

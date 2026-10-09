@@ -18,6 +18,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
+# Two caches, on purpose. The demo fixtures are committed, because the
+# offline demo is served from them and a reviewer should be able to read
+# exactly what the model was recorded saying. Everything else a run happens
+# to produce stays out of git, so a response from a real mailbox can never
+# be staged by accident.
+DEMO_CACHE = Path(__file__).resolve().parent.parent / "demo_cache"
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".llm_cache"
 
 
