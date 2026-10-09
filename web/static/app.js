@@ -244,6 +244,12 @@ async function loadScorecard() {
     if (condition.name === "policy") tr.className = "highlight";
     const name = document.createElement("td");
     name.textContent = DEFENCE_NAMES[condition.name] || condition.name;
+    if (condition.excluded) {
+      const dropped = document.createElement("span");
+      dropped.className = "ci";
+      dropped.textContent = ` (${condition.excluded} excluded)`;
+      name.appendChild(dropped);
+    }
     tr.appendChild(name);
     tr.appendChild(rateCell(condition.attack_success, true));
     tr.appendChild(rateCell(condition.attempt_rate, true));

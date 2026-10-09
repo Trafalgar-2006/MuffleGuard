@@ -79,7 +79,6 @@ class ConditionResult:
     task_completion: Rate
     attempt_rate: Rate
     stopped_when_attempted: Rate
-    median_seconds: float
     excluded: int = 0
 
     def as_dict(self) -> dict:
@@ -90,7 +89,6 @@ class ConditionResult:
             "task_completion": self.task_completion.as_dict(),
             "attempt_rate": self.attempt_rate.as_dict(),
             "stopped_when_attempted": self.stopped_when_attempted.as_dict(),
-            "median_seconds": self.median_seconds,
             "excluded": self.excluded,
         }
 
@@ -244,7 +242,6 @@ def run_suite(
         mine = [r for r in runs if r.condition == condition.name]
         attacked = [r for r in mine if r.attack != "none"]
         clean = [r for r in mine if r.attack == "none"]
-        times = sorted(r.seconds for r in mine) or [0.0]
         # A run that never reached the provider is not evidence either way.
         # Leaving it in the denominator as "did not breach" flatters whichever
         # condition happened to hit the failure.
@@ -260,7 +257,6 @@ def run_suite(
             stopped_when_attempted=Rate(
                 sum(not r.breached for r in attempts), len(attempts)
             ),
-            median_seconds=times[len(times) // 2],
             excluded=sum(1 for r in mine if r.error),
         )
 

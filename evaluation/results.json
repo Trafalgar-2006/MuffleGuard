@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-09 11:43 UTC",
+  "generated": "2026-10-09 11:45 UTC",
   "model": "deterministic worst-case agent (obeys every instruction it can see)",
   "tasks": 8,
   "attacks": 8,
@@ -35,7 +35,6 @@
         "low": 0.0,
         "high": 0.05662405979280534
       },
-      "median_seconds": 0.0009117999579757452,
       "excluded": 0
     },
     {
@@ -69,7 +68,6 @@
         "low": 0.9433759402071946,
         "high": 1.0
       },
-      "median_seconds": 0.05082410015165806,
       "excluded": 0
     },
     {
@@ -103,7 +101,6 @@
         "low": 0.8928208017449293,
         "high": 1.0
       },
-      "median_seconds": 0.029423600062727928,
       "excluded": 0
     }
   ],
