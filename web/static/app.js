@@ -243,7 +243,20 @@ async function main() {
     config = { request: "", model: "unknown", tamper_enabled: false };
   }
 
-  $("request").value = config.request || "";
+  const field = $("request");
+  const reset = $("reset-request");
+  // A browser that restored a previous value would otherwise leave the demo
+  // loaded with a request it cannot answer, which reads as the app being broken.
+  const useDemoRequest = () => {
+    field.value = config.request || "";
+    reset.hidden = true;
+  };
+  useDemoRequest();
+  window.addEventListener("pageshow", useDemoRequest);
+  field.addEventListener("input", () => {
+    reset.hidden = field.value.trim() === (config.request || "").trim();
+  });
+  reset.addEventListener("click", useDemoRequest);
   if (config.replay_only) {
     const note = $("request-note");
     note.hidden = false;

@@ -75,6 +75,7 @@ body {
 }
 
 .field small { color: var(--muffle); font-size: .78rem; max-width: 46ch; }
+.field button { justify-self: start; padding: .2rem .5rem; font-size: .75rem; }
 
 .toggles { display: flex; gap: .9rem; margin: 0; padding: 0; border: 0; }
 .toggles legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
