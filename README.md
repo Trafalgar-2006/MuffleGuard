@@ -38,6 +38,8 @@ private file never leaves.
 Every decision is written to a hash-chained SQLite log, so an edit after the
 fact breaks the chain at that entry.
 
+Live demo: **https://attack-lab-production.up.railway.app**
+
 ## Try it
 
 ```bash

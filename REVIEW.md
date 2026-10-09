@@ -3,6 +3,10 @@
 A checklist for reviewing this before the deadline. No API key is needed: the
 model responses are cached in the repo, so everything below runs offline.
 
+There is also a live one at https://attack-lab-production.up.railway.app,
+open to anyone, which runs real requests until the day's allowance is used and
+then replays the recorded run.
+
 ## Setup
 
 ```bash
