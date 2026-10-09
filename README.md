@@ -63,6 +63,10 @@ sentences struck through and every refusal carrying the line that explains it.
 The audit viewer will edit one of its own entries on request, so verification
 can be seen catching it (set `DEMO_TAMPER=1`).
 
+The built-in request uses a fixed synthetic response replay, so the comparison
+works offline. Custom requests use the configured provider when a key and daily
+call allowance are available.
+
 Sentence classifiers are off by default. Pass `--detector` after placing both
 ONNX model snapshots in the local Hugging Face cache; MuffleGuard does not
 download weights automatically. See [REVIEW.md](REVIEW.md) for setup. BPE

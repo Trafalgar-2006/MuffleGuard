@@ -1,0 +1,1 @@
+{"choices":[{"message":{"tool_calls":[{"id":"demo-files_read","type":"function","function":{"name":"files_read","arguments":"{\"path\":\"notes.md\"}"}}]}}]}

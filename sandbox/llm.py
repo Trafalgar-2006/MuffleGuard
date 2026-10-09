@@ -16,6 +16,7 @@ import os
 import threading
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 from urllib.parse import urlsplit
 
 # Two caches, on purpose. The demo fixtures are committed, because the
@@ -97,6 +98,7 @@ class LLM:
         env: dict | None = None,
         use_cache: bool | None = None,
         replay: bool = False,
+        on_live_call: Callable[[], bool] | None = None,
     ):
         self.env = env or load_env()
         self.model = model or self.env.get("LLM_MODEL", "openai/gpt-4o-mini")
@@ -126,6 +128,7 @@ class LLM:
         # is an error rather than a stand-in answer: a demo that invented the
         # model's reply would be showing a story, not a result.
         self.replay = replay
+        self.on_live_call = on_live_call
 
     def _key(self, body: dict) -> str:
         blob = json.dumps(body, sort_keys=True, separators=(",", ":"))
@@ -160,6 +163,8 @@ class LLM:
         api_key = self.env.get("LLM_API_KEY")
         if not api_key:
             raise LLMError("LLM_API_KEY is not set; copy .env.example to .env and fill it in")
+        if self.on_live_call is not None and not self.on_live_call():
+            raise LLMError("the daily live model call limit has been reached")
 
         import httpx
 

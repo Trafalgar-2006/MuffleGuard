@@ -1,0 +1,1 @@
+{"choices":[{"message":{"tool_calls":[{"id":"demo-inbox_read","type":"function","function":{"name":"inbox_read","arguments":"{\"email_id\":5}"}}]}}]}
