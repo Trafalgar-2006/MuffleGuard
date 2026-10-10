@@ -125,3 +125,17 @@ def test_an_empty_assignment_does_not_borrow_the_next_line():
 
     # A real one on a single line is still caught.
     assert "assigned_secret" in kinds("GOOGLE_CLIENT_SECRET=7Qm2xVr9Lb4TzHw6Ks1Fd8Np")
+
+
+def test_a_constant_assigned_to_another_constant_is_not_a_secret():
+    """GOOGLE_AUTH_REASONS = GOOGLE_OAUTH_ERRORS tripped the rule: the name
+    carries "auth" and the value is long and varied enough to look random."""
+    assert not scan("GOOGLE_AUTH_REASONS = GOOGLE_OAUTH_ERRORS | {1}")
+    assert not scan("SECRET_KEY = DEFAULT_SETTINGS_VALUE")
+
+
+def test_a_real_key_under_an_all_caps_name_is_still_a_secret():
+    """The exemption is the shape of the value, not the shape of the name. No
+    real credential is upper case with underscores."""
+    assert scan("AWS_SECRET_ACCESS_KEY = " + repr("AKIAIOSFODNN" + "7EXAMPLE"))
+    assert scan("AUTH_TOKEN = " + repr("aB3xQ9zL7mN2pR5t"))

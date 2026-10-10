@@ -46,6 +46,7 @@
 <script src="/assets/fx.js"></script>
 <script src="/assets/physics.js"></script>
 <script src="/assets/fluid.js"></script>
+<script src="/assets/cloud.js"></script>
 <script src="/assets/scene3d.js"></script>
 <script src="/assets/muffle.js"></script>
 <script src="/assets/glitch.js"></script>
@@ -525,6 +526,23 @@
         <div style="font:500 14px/1.5 Archivo;color:var(--mg-muted);margin-top:10px;max-width:22ch">of ordinary tasks still finished</div>
       </div>
     </div>
+
+    <!-- 13: the 192 attack runs, assembling into the three columns above.
+         A picture of the same table, built from its rows. -->
+    <figure data-cloud-wrap style="margin:44px 0 0;border:2px solid var(--mg-line);background:var(--mg-panel);position:relative;overflow:hidden">
+      <div data-cloud style="position:relative;height:220px"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--mg-faint)">
+        <span style="font:700 11px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;color:var(--mg-muted);text-align:center;padding:11px 6px">No guard</span>
+        <span style="font:700 11px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;color:var(--mg-muted);text-align:center;padding:11px 6px">Policy engine</span>
+        <span style="font:700 11px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;color:var(--mg-muted);text-align:center;padding:11px 6px">Policy and muffling</span>
+      </div>
+      <figcaption style="display:flex;flex-wrap:wrap;gap:8px 22px;padding:12px 16px;border-top:2px solid var(--mg-line)">
+        <span style="font:700 10px/1.6 Archivo;letter-spacing:.16em;text-transform:uppercase;color:var(--mg-muted)">one point, one run</span>
+        <span style="font:500 12px/1.6 Archivo;color:var(--mg-muted);display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:var(--mg-hot);display:block"></span>reached the attacker (64, no guard)</span>
+        <span style="font:500 12px/1.6 Archivo;color:var(--mg-muted);display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:var(--mg-ink);display:block"></span>tried and was refused (96)</span>
+        <span style="font:500 12px/1.6 Archivo;color:var(--mg-muted);display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:var(--mg-faint);display:block"></span>never tried, the instruction was gone (32)</span>
+      </figcaption>
+    </figure>
 
     <div style="margin-top:48px;overflow-x:auto" data-reveal>
       <table class="table" style="width:100%;min-width:720px">

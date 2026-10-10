@@ -799,6 +799,9 @@
   }
 
   function scenes() {
+    var cloudHost = $("[data-cloud]");
+    if (cloudHost && window.MG_CLOUD) window.MG_CLOUD_FIELD = window.MG_CLOUD.mount(cloudHost);
+
     var chainHost = $("[data-chain]");
     var say = $("[data-chain-say]");
     var chain = null;

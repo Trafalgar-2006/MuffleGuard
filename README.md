@@ -230,6 +230,8 @@ Known gaps are asserted as they behave in `tests/test_redteam.py`.
 | [GSAP](https://gsap.com/) 3.12.5 with ScrollTrigger, on the site pages | GSAP standard licence (no-charge tier) |
 | [anime.js](https://animejs.com/) 3.2.2, on the site pages | MIT |
 | [Motion](https://motion.dev/) 11.11.13, on the site pages | MIT |
+| [three.js](https://threejs.org/) r160, on the site pages | MIT |
+| [matter-js](https://brm.io/matter-js/) 0.19.0, on the site pages | MIT |
 | [Archivo](https://fonts.google.com/specimen/Archivo) and [IBM Plex Mono](https://github.com/IBM/plex), served from `site/assets/fonts` | SIL OFL 1.1 |
 | [Pillow](https://python-pillow.org/), used once to crop the logo | MIT-CMU |
 | Agent model via [OpenRouter](https://openrouter.ai/) | provider terms |

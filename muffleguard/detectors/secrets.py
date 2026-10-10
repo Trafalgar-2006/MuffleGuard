@@ -128,6 +128,14 @@ _ASSIGNED_RE = re.compile(
 )
 
 
+# One constant assigned to another is not a credential. GOOGLE_AUTH_REASONS =
+# GOOGLE_OAUTH_ERRORS matched because the name carries "auth" and the value is
+# long enough and varied enough to look random. Real keys do not look like
+# this: an underscore is required, which keeps AKIA..., sk-proj-..., hex and
+# base64 all caught, since none of them contain one in upper case.
+_CONSTANT_RE = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+")
+
+
 def scan(text: str) -> list[Finding]:
     """Every secret or personal identifier in the text, left to right.
 
@@ -164,6 +172,8 @@ def scan(text: str) -> list[Finding]:
 
     for m in _ASSIGNED_RE.finditer(text):
         value = m.group(1)
+        if _CONSTANT_RE.fullmatch(value):
+            continue
         if shannon_entropy(value) >= 3.0:
             add("assigned_secret", value, m.start(1), m.end(1), "likely")
 
