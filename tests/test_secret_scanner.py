@@ -90,3 +90,50 @@ def test_a_key_beside_an_svg_path_is_still_caught(monkeypatch, tmp_path, capsys)
 
     assert result == 1
     assert "aws" in output.lower()
+
+
+NUMBERS = "var t=[9478123456,0.9999619230641713];"
+AWS_KEY = "var e='AKIAIOSFODNN7EXAMPLE';"
+
+
+def _scan_at(monkeypatch, tmp_path, rel, text, capsys):
+    """Scan one file at a chosen path, so the vendored exemption can be tested
+    on the path it keys off."""
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    monkeypatch.setattr(check_secrets, "ROOT", tmp_path)
+    monkeypatch.setattr(check_secrets, "tracked_files", lambda: [rel])
+    return check_secrets.main(), capsys.readouterr().out
+
+
+def test_numeric_pii_in_a_vendored_bundle_is_not_a_finding(monkeypatch, tmp_path, capsys):
+    """three.min.js carries a number that reads as an Indian phone number. A
+    minified library is a wall of numeric literals and some of them land on a
+    checksum by chance."""
+    result, output = _scan_at(
+        monkeypatch, tmp_path, "site/assets/vendor/three.min.js", NUMBERS, capsys
+    )
+
+    assert result == 0, output
+
+
+def test_the_same_number_outside_vendor_is_still_a_finding(monkeypatch, tmp_path, capsys):
+    """The exemption is the vendor directory, not the pattern."""
+    result, output = _scan_at(
+        monkeypatch, tmp_path, "site/assets/motion.js", NUMBERS, capsys
+    )
+
+    assert result == 1
+    assert "phone" in output.lower()
+
+
+def test_a_credential_in_a_vendored_bundle_is_still_caught(monkeypatch, tmp_path, capsys):
+    """A key pasted into a vendored file would be ours, so that half of the
+    gate stays on."""
+    result, output = _scan_at(
+        monkeypatch, tmp_path, "site/assets/vendor/three.min.js", AWS_KEY, capsys
+    )
+
+    assert result == 1
+    assert "aws" in output.lower()

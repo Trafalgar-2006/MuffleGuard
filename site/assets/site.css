@@ -18,8 +18,12 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+/* Smooth scrolling is deliberately NOT set here. ScrollTrigger measures by
+   setting the scroll position and reading back immediately; with CSS smooth
+   behaviour the browser animates that instead of jumping, so every trigger on
+   the page ends up measured from wherever the reader happened to be. It was
+   out by about 8000px. Anchor clicks are smoothed in motion.js instead, where
+   it only affects the click. */
 
 body {
   margin: 0;

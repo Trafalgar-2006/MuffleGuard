@@ -29,7 +29,6 @@
     --color-neutral-400: #7d7979; --color-neutral-500: #9b9797; --color-neutral-600: #bab6b6;
     --color-neutral-700: #d7d3d3; --color-neutral-800: #eae7e7; --color-neutral-900: #f8f4f4;
   }
-  html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--mg-bg); color: var(--mg-ink); font-family: "Archivo", system-ui, sans-serif; -webkit-font-smoothing: antialiased; transition: background .35s ease, color .35s ease; }
   * { box-sizing: border-box; }
   ::selection { background: var(--mg-hot); color: #fff; }
@@ -46,6 +45,7 @@
 <script src="/assets/vendor/matter.min.js"></script>
 <script src="/assets/fx.js"></script>
 <script src="/assets/physics.js"></script>
+<script src="/assets/scene3d.js"></script>
 <script src="/assets/muffle.js"></script>
 <script src="/assets/glitch.js"></script>
 <script src="/assets/motion.js" defer></script>
@@ -399,6 +399,17 @@
   <div style="max-width:1320px;margin:0 auto;padding:0 28px">
     <div style="font:700 12px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-hot)" data-reveal>03 — How it works</div>
     <h2 style="font:800 clamp(32px,4.4vw,60px)/1.0 Archivo;letter-spacing:-0.03em;margin:18px 0 0;max-width:20ch" data-reveal>Two layers, so that one miss is not a breach.</h2>
+
+    <!-- 10: the pipeline as one scene, flown through rather than paged past.
+         Nothing here is load-bearing; the three columns below say the same
+         thing in words. -->
+    <figure data-flight-wrap style="margin:44px 0 0;border:2px solid var(--mg-line);background:var(--mg-panel);position:relative;overflow:hidden">
+      <div data-flight style="position:relative;height:400px"></div>
+      <figcaption style="position:absolute;left:0;bottom:0;display:flex;align-items:baseline;gap:10px;padding:11px 16px;border-top:2px solid var(--mg-line);border-right:2px solid var(--mg-line);background:var(--mg-bg)">
+        <span style="font:700 10px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-muted)">station</span>
+        <span data-flight-label style="font:600 13px/1 var(--mono);color:var(--mg-hot)">read the inbox</span>
+      </figcaption>
+    </figure>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0;margin-top:56px;border-top:2px solid var(--mg-line)">
       <div data-reveal style="padding:36px 36px 36px 0;border-right:2px solid var(--mg-line)">
         <div style="font:700 11px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-hot);margin-bottom:14px">Layer 1</div>
@@ -418,6 +429,42 @@
         <p style="font:400 16px/1.7 Archivo;color:var(--mg-muted);margin:0 0 16px">Every decision is written to a hash-chained SQLite log. A separately recorded head makes deleting the last row detectable while the database metadata remains intact.</p>
         <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:0">Tamper-evident, not tamper-proof — the limits are stated plainly in the <a href="/docs">docs</a>.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="trace" style="padding:110px 0 0">
+  <div style="max-width:1320px;margin:0 auto;padding:0 28px">
+    <div style="font:700 12px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-hot)" data-reveal>03b &mdash; The two mechanisms, shown</div>
+    <h2 style="font:800 clamp(32px,4.4vw,60px)/1.0 Archivo;letter-spacing:-0.03em;margin:18px 0 0;max-width:24ch" data-reveal>Where a target came from, and whether the record still holds.</h2>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:0;margin-top:52px;border-top:2px solid var(--mg-line)">
+
+      <!-- 4: the provenance graph, positioned by force rather than by hand -->
+      <div data-reveal style="padding:34px 34px 34px 0;border-right:2px solid var(--mg-line)">
+        <h3 style="font:800 24px/1.15 Archivo;margin:0 0 12px">Provenance</h3>
+        <p style="font:400 15px/1.7 Archivo;color:var(--mg-muted);margin:0 0 20px;max-width:44ch">Nodes repel each other and edges pull. The two red edges are the traced path &mdash; from the outbound call back to the email that supplied its target &mdash; and they are given a stiffer spring, so that path ends up the shortest line in the picture.</p>
+        <div data-graph style="border:2px solid var(--mg-line);background:var(--mg-panel);position:relative;overflow:hidden;height:300px"></div>
+        <ul style="list-style:none;padding:0;margin:14px 0 0;display:flex;flex-wrap:wrap;gap:6px 18px">
+          <li style="font:500 12px/1.5 Archivo;color:var(--mg-muted);display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:var(--mg-ink);display:block"></span>chosen by you, or read by a tool</li>
+          <li style="font:500 12px/1.5 Archivo;color:var(--mg-muted);display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:var(--mg-hot);display:block"></span>untrusted content, and the target it names</li>
+          <li style="font:500 12px/1.5 Archivo;color:var(--mg-muted);display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:#c89b3c;display:block"></span>private</li>
+        </ul>
+      </div>
+
+      <!-- 5: the hash chain, which lets go downstream of an edit -->
+      <div data-reveal style="padding:34px 0 34px 34px">
+        <h3 style="font:800 24px/1.15 Archivo;margin:0 0 12px">The log, edited</h3>
+        <p style="font:400 15px/1.7 Archivo;color:var(--mg-muted);margin:0 0 20px;max-width:44ch">Each entry hangs from the hash of the one before it. Edit entry six and every link after it loses what it was hanging from. The first five keep hanging exactly where they were, which is the part that makes the log worth keeping.</p>
+        <div data-chain style="border:2px solid var(--mg-line);background:var(--mg-panel);position:relative;overflow:hidden;height:280px"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+          <button class="btn btn-secondary" data-action="chainVerify" data-magnetic style="white-space:nowrap">Verify the chain</button>
+          <button class="btn btn-primary" data-action="chainTamper" data-magnetic style="white-space:nowrap">Edit entry six</button>
+          <button class="btn btn-secondary" data-action="chainReset" data-magnetic style="white-space:nowrap">Reset</button>
+        </div>
+        <p data-chain-say style="font:500 13px/1.6 var(--mono);color:var(--mg-muted);margin:14px 0 0;min-height:1.6em" aria-live="polite">11 entries, each one hanging from the last.</p>
+      </div>
+
     </div>
   </div>
 </section>

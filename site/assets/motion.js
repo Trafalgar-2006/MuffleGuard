@@ -750,6 +750,95 @@
 
   /* --------------------------------------------------------- actions */
 
+  /* ----------------------------------------- 3D: provenance, chain, flight
+   *
+   * three.js is 670KB, which is more than the rest of the page put together,
+   * so it is not in the document head. It is fetched the first time one of
+   * its three hosts comes within a screen of the viewport, and if the fetch
+   * fails every one of them stays the empty bordered box it already was.
+   */
+
+  var threePending = null;
+
+  function needThree(done) {
+    if (window.THREE) return done(window.THREE);
+    if (!threePending) {
+      threePending = new Promise(function (resolve) {
+        var s = document.createElement("script");
+        s.src = "/assets/vendor/three.min.js";
+        s.onload = function () { resolve(window.THREE || null); };
+        s.onerror = function () { resolve(null); };
+        document.head.appendChild(s);
+      });
+    }
+    threePending.then(done);
+  }
+
+  /* Run fn once the host is within a screen of the viewport, with three.js
+   * loaded. Each host already reserves its canvas height in the markup, so a
+   * late load shifts nothing and a failed one leaves an empty panel rather
+   * than a jump. */
+  function when3D(host, fn) {
+    if (!host || REDUCED) return;
+    onSeen(host, function () {
+      needThree(function (T) {
+        if (!T || !window.MG_3D) return;
+        fn();
+      });
+    }, 0, "100% 0px 100% 0px");
+  }
+
+  function scenes() {
+    var chainHost = $("[data-chain]");
+    var say = $("[data-chain-say]");
+    var chain = null;
+
+    when3D(chainHost, function () {
+      chain = window.MG_3D.chain(chainHost);
+      if (!chain) return;
+      window.MG_CHAIN = chain;        // so the chain can be inspected from a console
+      // Verifying on arrival states the resting case before either button is
+      // pressed: this is what an intact chain looks like.
+      later(chain.verify, 420);
+    });
+
+    ACTIONS.chainVerify = function () {
+      if (!chain) return;
+      chain.verify();
+      if (say) say.textContent = "checked " + chain.count + " of " + chain.count + " - every link hangs from the last.";
+    };
+    ACTIONS.chainTamper = function () {
+      if (!chain) return;
+      var at = chain.tamper(5);
+      if (say) {
+        say.textContent = "entry " + (at + 1) + " was edited. links " + (at + 1) +
+          " to " + chain.count + " no longer hang from anything; 1 to " + at + " still hold.";
+      }
+    };
+    ACTIONS.chainReset = function () {
+      if (!chain) return;
+      chain.reset();
+      if (say) say.textContent = chain.count + " entries, each one hanging from the last.";
+    };
+
+    when3D($("[data-graph]"), function () { window.MG_3D.graph($("[data-graph]")); });
+
+    var flightHost = $("[data-flight]");
+    when3D(flightHost, function () {
+      var fl = window.MG_3D.flight(flightHost, $("[data-flight-label]"));
+      if (!fl || !gsap || !window.ScrollTrigger) return;
+      // Scrubbed, not played: the camera is where the scrollbar is, and
+      // scrolling back flies back.
+      window.ScrollTrigger.create({
+        trigger: flightHost.parentElement,
+        start: "top 85%",
+        end: "bottom 15%",
+        onUpdate: function (self) { fl.setProgress(self.progress); },
+      });
+      window.ScrollTrigger.refresh();
+    });
+  }
+
   var ACTIONS = {
     toggleTheme: function () { setTheme(theme === "dark" ? "light" : "dark"); },
     replayHero: function () { if (replayHero) replayHero(); },
@@ -772,6 +861,24 @@
     checkChain: function () { if (window.__mgLab) window.__mgLab.checkChain(); },
     tamper: function () { if (window.__mgLab) window.__mgLab.tamper(); }
   };
+
+  /* Anchor clicks, smoothed here rather than in CSS. html{scroll-behavior:
+   * smooth} also applies to the scroll ScrollTrigger performs while it
+   * measures, which silently pushed every trigger on this page thousands of
+   * pixels out of position. */
+  function anchors() {
+    document.addEventListener("click", function (ev) {
+      var a = ev.target.closest('a[href^="#"]');
+      if (!a) return;
+      var id = a.getAttribute("href");
+      if (id.length < 2) return;
+      var target = document.querySelector(id);
+      if (!target) return;
+      ev.preventDefault();
+      target.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "start" });
+      history.replaceState(null, "", id);
+    });
+  }
 
   function wireActions() {
     document.addEventListener("click", function (ev) {
@@ -803,6 +910,7 @@
     setTheme(saved === "dark" || saved === "light" ? saved : "light");
 
     wireActions();
+    anchors();
     story();      // observer only, safe before the bundles land
     demo();
     lab();
@@ -818,6 +926,7 @@
       scrollEffects();
       spy();
       bars();
+      scenes();
       document.documentElement.setAttribute("data-motion", gsap ? "on" : "off");
     });
   }

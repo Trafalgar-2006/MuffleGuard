@@ -103,6 +103,11 @@ def _without_vector_geometry(text: str) -> str:
     )
 
 
+# Kinds recognised purely by digit pattern and checksum, which random numbers
+# satisfy often enough to matter in a minified bundle.
+NUMERIC_PII = frozenset({"phone_in", "aadhaar", "card"})
+
+
 def main() -> int:
     findings: list[tuple[str, str, str]] = []
     skipped_binary = 0
@@ -125,8 +130,17 @@ def main() -> int:
         if _looks_utf16(raw):
             text += raw.decode("utf-16", errors="ignore")
         text = _without_vector_geometry(text)
+        vendored = "/vendor/" in name.replace("\\", "/")
         for finding in scan(text):
             if finding.value in FIXTURE_VALUES.get(name, set()):
+                continue
+            # A minified third-party bundle is a wall of numeric literals, and
+            # some of them are Luhn-valid or phone-shaped by chance: three.js
+            # trips the phone detector on a float in its matrix code. Vendored
+            # files are still scanned for credential shapes, because a key
+            # pasted into one would be ours. They are not scanned for numeric
+            # PII, because none of it could be.
+            if vendored and finding.kind in NUMERIC_PII:
                 continue
             findings.append((name, finding.kind, finding.masked))
 
