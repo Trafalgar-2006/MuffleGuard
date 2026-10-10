@@ -205,6 +205,8 @@ async function loadAudit() {
 
   const body = $("audit-table").querySelector("tbody");
   body.textContent = "";
+  const pool = hexWeights(data.entries.flatMap((e) => [e.prev_hash, e.hash]));
+  let row = 0;
   for (const entry of data.entries) {
     const tr = document.createElement("tr");
     // The edited entry is the finding; the rest only inherit its doubt.
@@ -220,11 +222,84 @@ async function loadAudit() {
     ]) {
       const td = document.createElement("td");
       if (className) td.className = className;
-      td.textContent = value;
+      if (value === entry.prev_hash || value === entry.hash) {
+        td.textContent = value;
+        resolveHash(td, String(value), pool, row * 45);
+      } else {
+        td.textContent = value;
+      }
       tr.appendChild(td);
     }
     body.appendChild(tr);
+    row++;
   }
+}
+
+/* ---- hashes resolving ----
+ *
+ * A hash arrives by being checked, not by being read off, so the cells settle
+ * into their value instead of simply appearing with it.
+ *
+ * The characters each position cycles through are drawn from the frequency
+ * the hex digits actually occur at in this log, not from a flat 0-f, and the
+ * pool narrows as the position converges: early on anything is possible, late
+ * on it is nearly always the right character with the occasional miss. That
+ * is what narrowing uncertainty looks like, which is what verifying a chain
+ * does.
+ */
+
+const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const settled = new Set();
+
+function hexWeights(hashes) {
+  const counts = new Map();
+  let total = 0;
+  for (const h of hashes) {
+    for (const ch of h) {
+      if (!/[0-9a-f]/.test(ch)) continue;
+      counts.set(ch, (counts.get(ch) || 0) + 1);
+      total++;
+    }
+  }
+  // A pool with each digit repeated in proportion to how often it occurs, so
+  // picking uniformly from it reproduces the real distribution.
+  const pool = [];
+  for (const [ch, n] of counts) {
+    const share = Math.max(1, Math.round((n / total) * 100));
+    for (let i = 0; i < share; i++) pool.push(ch);
+  }
+  return pool.length ? pool : "0123456789abcdef".split("");
+}
+
+function resolveHash(cell, value, pool, delay) {
+  if (REDUCED_MOTION || settled.has(value)) {
+    cell.textContent = value;
+    return;
+  }
+  settled.add(value);
+
+  const chars = value.split("");
+  const started = performance.now() + delay;
+  const span = 520;
+
+  function tick(now) {
+    const k = Math.min(1, Math.max(0, (now - started) / span));
+    if (k <= 0) { requestAnimationFrame(tick); return; }
+    let out = "";
+    for (let i = 0; i < chars.length; i++) {
+      // Each position has its own threshold, so they lock left to right
+      // rather than all at once.
+      const settledHere = k > (i / chars.length) * 0.85 + 0.15;
+      const certainty = Math.min(1, Math.max(0, (k - (i / chars.length) * 0.85) / 0.3));
+      out += settledHere && Math.random() < certainty
+        ? chars[i]
+        : pool[(Math.random() * pool.length) | 0];
+    }
+    cell.textContent = out;
+    if (k < 1) requestAnimationFrame(tick);
+    else cell.textContent = value;
+  }
+  requestAnimationFrame(tick);
 }
 
 /* ---- scorecard ---- */

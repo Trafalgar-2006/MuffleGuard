@@ -399,7 +399,13 @@
             complete: function () {
               anime({
                 targets: refusal, opacity: [0, 1], translateY: [16, 0],
-                duration: 620, easing: "easeOutCubic"
+                duration: 620, easing: "easeOutCubic",
+                // One burst, on the frame the call is refused: the panel
+                // separates into channels and tears, the way a frame does
+                // when the data behind it is malformed. Once, here, only.
+                begin: function () {
+                  if (window.MG_GLITCH) window.MG_GLITCH.burst(refusal, 150);
+                }
               });
             }
           });
