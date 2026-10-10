@@ -111,3 +111,17 @@ def test_overlapping_matches_are_reported_once():
 def test_secrets_named_with_a_prefix_are_found(line):
     """DB_PASSWORD and SESSION_TOKEN are how real env files name them."""
     assert "assigned_secret" in kinds(line)
+
+
+def test_an_empty_assignment_does_not_borrow_the_next_line():
+    """A blank SECRET= is not a secret, whatever follows it.
+
+    The value pattern allowed any whitespace after the "=", including a
+    newline, so an empty assignment ran on and claimed the next variable's
+    name as its value. A .env.example full of blank placeholders reported one.
+    """
+    blanks = "GOOGLE_CLIENT_ID=\nGOOGLE_CLIENT_SECRET=\nGOOGLE_REDIRECT_URI=\n"
+    assert "assigned_secret" not in kinds(blanks)
+
+    # A real one on a single line is still caught.
+    assert "assigned_secret" in kinds("GOOGLE_CLIENT_SECRET=7Qm2xVr9Lb4TzHw6Ks1Fd8Np")

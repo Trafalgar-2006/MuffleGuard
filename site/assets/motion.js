@@ -362,6 +362,9 @@
     var caret = $("[data-caret]");
     if (!type || !strike || !refusal) return;
 
+    // Muted by default; the toggle only appears if audio is possible here.
+    if (window.MG_MUFFLE) window.MG_MUFFLE.mountToggle($("[data-sound-host]"));
+
     if (REDUCED || !anime) {
       strike.style.width = "100%";
       refusal.style.opacity = "1";
@@ -378,6 +381,7 @@
     refusal.style.transform = "translateY(16px)";
 
     replayHero = function () {
+      if (window.MG_MUFFLE) window.MG_MUFFLE.reset(type);
       strike.style.width = "0px";
       if (caret) caret.style.display = "inline-block";
       anime.remove(type); anime.remove(strike); anime.remove(refusal);
@@ -385,7 +389,11 @@
         targets: type, width: [0, full], duration: 1500, easing: "steps(46)",
         complete: function () {
           if (caret) caret.style.display = "none";
-          // the instruction is struck out, then the refusal lands under it
+          // the instruction is struck out, then the refusal lands under it.
+          // The muffle runs on the same beat: one cutoff value drives a
+          // lowpass on an audio tone and a Gaussian convolution over the
+          // sentence, so what you hear and what you see are one filter.
+          if (window.MG_MUFFLE) window.MG_MUFFLE.run(type, 1200);
           anime({
             targets: strike, width: [0, full], duration: 520, easing: "easeInOutQuad",
             complete: function () {

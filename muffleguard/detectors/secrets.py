@@ -121,7 +121,10 @@ _UPI_RE = re.compile(
 # anchoring on \bpassword would miss both.
 _ASSIGNED_RE = re.compile(
     r"(?i)(?:^|[^A-Za-z0-9])\w*(?:api[_\-]?key|secret|token|password|passwd|credential|auth)\w*"
-    r"\s*[:=]\s*[\"']?([A-Za-z0-9/+_\-]{16,})[\"']?"
+    # Horizontal space only. \s* would cross the newline, so an empty
+    # "SECRET=" followed by another variable read that variable's name as its
+    # value: three blank assignments in a row scored as one long secret.
+    r"[ \t]*[:=][ \t]*[\"']?([A-Za-z0-9/+_\-]{16,})[\"']?"
 )
 
 

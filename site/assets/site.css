@@ -252,3 +252,17 @@ p { margin: 0 0 1em; }
 /* Elements the script animates start hidden, but only when the script is
    there to reveal them: no JS, no blank page. */
 .js [data-rise] { opacity: 0; }
+
+/* The sound toggle beside the hidden sentence. Small on purpose: the muffle
+   is the signature moment, but sound nobody asked for is a reason to leave. */
+.mg-sound {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; cursor: pointer;
+  border: 2px solid var(--mg-line, currentColor); background: transparent;
+  color: inherit; font: 700 11px/1 Archivo, system-ui, sans-serif;
+  letter-spacing: .08em; text-transform: uppercase;
+  transition: background .2s, color .2s;
+}
+.mg-sound:hover { background: var(--mg-hot, #ec3013); border-color: var(--mg-hot, #ec3013); color: #fff; }
+.mg-sound[aria-pressed="true"] { background: var(--mg-hot, #ec3013); border-color: var(--mg-hot, #ec3013); color: #fff; }
+.mg-sound:focus-visible { outline: 2px solid var(--mg-hot, #ec3013); outline-offset: 2px; }
