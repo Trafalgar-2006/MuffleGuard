@@ -366,6 +366,14 @@
     if (window.MG_MUFFLE) window.MG_MUFFLE.mountToggle($("[data-sound-host]"));
 
     // The noise floor, fed from the muffle's own audio graph.
+    // The policy sandbox: started only when it is actually on screen, so a
+    // physics engine is not running against an empty viewport.
+    var sandboxHost = $("[data-sandbox]");
+    if (sandboxHost && window.MG_PHYS) {
+      var box = window.MG_PHYS.sandbox(sandboxHost);
+      if (box) onSeen(sandboxHost, box.start, 0.3);
+    }
+
     var floorHost = $("[data-noise-floor]");
     if (floorHost && window.MG_FX) {
       var wf = window.MG_FX.waveform(floorHost);

@@ -43,7 +43,9 @@
 <script src="/assets/vendor/ScrollTrigger.min.js" defer></script>
 <script src="/assets/vendor/anime.min.js" defer></script>
 <script src="/assets/vendor/motion.js" defer></script>
+<script src="/assets/vendor/matter.min.js"></script>
 <script src="/assets/fx.js"></script>
+<script src="/assets/physics.js"></script>
 <script src="/assets/muffle.js"></script>
 <script src="/assets/glitch.js"></script>
 <script src="/assets/motion.js" defer></script>
@@ -182,6 +184,14 @@
       <div data-reveal>
         <p style="font:400 17px/1.7 Archivo;color:var(--mg-muted);margin:0 0 20px">An agent that reads email and can send it has everything an attacker needs: it reads text the attacker wrote, it holds data worth stealing, and it can send things out. An instruction hidden in an email is read by the model exactly like one from the user.</p>
         <p style="font:400 17px/1.7 Archivo;color:var(--mg-muted);margin:0">The model has no channel that tells it which sentences came from a person it works for. Everything arrives as text. So the defence cannot live inside the model's judgement — it has to live in front of the tools.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:72px" data-reveal>
+      <div style="font:700 11px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-muted);margin-bottom:18px">Unsafe tool usage — a dangerous call weighs more. Drag one.</div>
+      <div data-sandbox style="border:2px solid var(--mg-line);background:var(--mg-panel);position:relative;overflow:hidden;margin-bottom:14px"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);font:700 11px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;color:var(--mg-muted);text-align:center;margin-bottom:60px">
+        <span>Allow</span><span>Ask a human</span><span>Block</span>
       </div>
     </div>
 
