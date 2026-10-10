@@ -515,7 +515,11 @@ async function main() {
     : "Google account connected; choose whether to use its data.";
   if (googleResult === "failed") {
     const reason = new URLSearchParams(location.search).get("reason");
-    googleStatus.textContent = ({
+    // Object.assign onto a null prototype: a plain literal inherits from
+    // Object.prototype, so ?reason=constructor looked up a function, which is
+    // truthy and so survived the fallback - the page printed "function
+    // Object() { [native code] }" where the error message belongs.
+    googleStatus.textContent = (Object.assign(Object.create(null), {
       cancelled: "Google sign-in was cancelled. Choose Connect Gmail + Drive to try again.",
       invalid_client: "Google rejected the OAuth client. Check that Railway's client ID and client secret belong to the same Web application client.",
       invalid_grant: "Google rejected the one-time sign-in code. Start Connect Gmail + Drive again; if it repeats, verify the client secret and redirect URL.",
@@ -525,7 +529,7 @@ async function main() {
       state: "The sign-in session expired or was lost. Start again in the same browser and finish the sign-in promptly.",
       token_exchange: "Google could not complete sign-in. Check the OAuth settings and try again.",
       unauthorized_client: "Google does not allow this OAuth client to use the requested sign-in flow. Check its Web application type and consent setup.",
-    })[reason] || "Google sign-in failed. Check the OAuth setup and try again.";
+    }))[reason] || "Google sign-in failed. Check the OAuth setup and try again.";
   }
   if (googleResult === "not-configured") googleStatus.textContent = "Google OAuth needs server setup before you can connect.";
   if (googleResult) history.replaceState(null, "", location.pathname);
