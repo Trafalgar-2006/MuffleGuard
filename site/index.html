@@ -45,6 +45,7 @@
 <script src="/assets/vendor/matter.min.js"></script>
 <script src="/assets/fx.js"></script>
 <script src="/assets/physics.js"></script>
+<script src="/assets/fluid.js"></script>
 <script src="/assets/scene3d.js"></script>
 <script src="/assets/muffle.js"></script>
 <script src="/assets/glitch.js"></script>
@@ -79,8 +80,11 @@
   </div>
 </header>
 
-<section id="top" style="padding:0 0 0">
-  <div style="max-width:1320px;margin:0 auto;padding:72px 28px 56px;display:flex;flex-wrap:wrap;gap:40px;align-items:flex-end">
+<section id="top" style="padding:0 0 0;position:relative;overflow:hidden">
+  <!-- 8: the fluid, behind everything. Absent without WebGL or float
+       textures, and the hero is unchanged. -->
+  <div data-fluid aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none"></div>
+  <div style="position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:72px 28px 56px;display:flex;flex-wrap:wrap;gap:40px;align-items:flex-end">
    <div style="flex:1.75 1 440px;min-width:0">
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:30px;flex-wrap:wrap">
       <span class="tag tag-accent">Prompt-injection defence</span>

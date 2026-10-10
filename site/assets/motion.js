@@ -374,6 +374,16 @@
       if (box) onSeen(sandboxHost, box.start, 0.3);
     }
 
+    var fluidHost = $("[data-fluid]");
+    if (fluidHost && window.MG_FLUID) {
+      var fl = window.MG_FLUID.mount(fluidHost);
+      if (fl) {
+        window.MG_FLUID_SINK = fl.setCutoff;
+        window.MG_FLUID_FIELD = fl;    // so the field can be inspected
+        fl.start();
+      }
+    }
+
     var floorHost = $("[data-noise-floor]");
     if (floorHost && window.MG_FX) {
       var wf = window.MG_FX.waveform(floorHost);

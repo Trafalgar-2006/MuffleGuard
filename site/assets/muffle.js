@@ -242,10 +242,14 @@
       // ease so most of the brightness goes early, as a filter sweep sounds
       var cutoff = 1 - (1 - Math.pow(1 - k, 2.2));
       sh.draw(cutoff);
+      // The hero's fluid loses its momentum on this same curve. One cutoff,
+      // three media: the glyph blur, the lowpass on the note, and the flow.
+      if (global.MG_FLUID_SINK) global.MG_FLUID_SINK(cutoff);
       if (k < 1) {
         requestAnimationFrame(frame);
       } else {
         sh.draw(0);
+        if (global.MG_FLUID_SINK) global.MG_FLUID_SINK(0);
         running = false;
       }
     }
@@ -254,6 +258,7 @@
 
   function reset(el) {
     if (shader) { shader.hide(); }
+    if (global.MG_FLUID_SINK) global.MG_FLUID_SINK(1);   // the flow comes back
     running = false;
     if (el) el.style.opacity = "";
   }

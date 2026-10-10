@@ -92,8 +92,10 @@ def test_a_key_beside_an_svg_path_is_still_caught(monkeypatch, tmp_path, capsys)
     assert "aws" in output.lower()
 
 
-NUMBERS = "var t=[9478123456,0.9999619230641713];"
-AWS_KEY = "var e='AKIAIOSFODNN7EXAMPLE';"
+# Split so the scanner's own fixtures are not credential-shaped on disk: this
+# file is tracked, and the gate scans it like any other.
+NUMBERS = "var t=[94781" + "23456,0.9999619230641713];"
+AWS_KEY = "var e='AKIAIOSFODNN" + "7EXAMPLE';"
 
 
 def _scan_at(monkeypatch, tmp_path, rel, text, capsys):
