@@ -48,6 +48,23 @@ def test_oauth_rejects_a_partial_scope_grant():
     assert not connector.is_connected(session)
 
 
+def test_oauth_token_exchange_reports_only_a_safe_google_error_code():
+    client = httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(401, json={
+        "error": "invalid_client",
+        "error_description": "private provider detail",
+    })))
+    connector = GoogleConnector("client", "secret", "https://lab.example/callback", client=client)
+    session = "session-a"
+    state = parse_qs(urlparse(connector.begin(session)).query)["state"][0]
+
+    with pytest.raises(GoogleAuthError) as error:
+        connector.finish(session, state, "code")
+
+    assert error.value.reason == "invalid_client"
+    assert "private provider detail" not in str(error.value)
+    assert "secret" not in str(error.value)
+
+
 def test_google_workspace_reads_limited_mail_and_text_files_only():
     message_body = base64.urlsafe_b64encode(b"Synthetic message body").decode().rstrip("=")
 
@@ -224,6 +241,28 @@ def test_oauth_routes_set_an_http_only_session_and_allow_disconnect(monkeypatch)
     disconnected = client.post("/api/google/disconnect", headers={"Origin": "https://testserver"})
     assert disconnected.status_code == 200
     assert client.get("/api/config").json()["google_connected"] is False
+
+
+def test_oauth_callback_preserves_only_the_safe_failure_reason(monkeypatch):
+    import web.app as web_app
+
+    class FailedConnector(FakeConnector):
+        def finish(self, session_id, state, code):
+            raise GoogleAuthError("Google sign-in failed", reason="invalid_client")
+
+    monkeypatch.setattr(web_app, "load_env", lambda path=None: {
+        "GOOGLE_CLIENT_ID": "client-id",
+        "GOOGLE_CLIENT_SECRET": "secret",
+        "GOOGLE_REDIRECT_URI": "https://testserver/auth/google/callback",
+    })
+    monkeypatch.setattr(web_app, "GoogleConnector", FailedConnector)
+    client = TestClient(web_app.create_app(passcode="", replay=True), base_url="https://testserver")
+    client.get("/auth/google/start", follow_redirects=False)
+
+    callback = client.get("/auth/google/callback?state=state-value&code=test-code", follow_redirects=False)
+
+    assert callback.status_code == 303
+    assert callback.headers["location"] == "/live?google=failed&reason=invalid_client"
 
 
 def test_run_uses_google_workspace_only_after_an_explicit_opt_in(monkeypatch):

@@ -372,12 +372,14 @@ def create_app(
     def google_callback(request: Request):
         session_id = _google_session(request)
         state, code = request.query_params.get("state", ""), request.query_params.get("code", "")
-        if request.query_params.get("error") or not session_id or len(state) > 256 or len(code) > 8192:
-            return _harden(RedirectResponse("/live?google=failed", status_code=303))
+        if request.query_params.get("error"):
+            return _harden(RedirectResponse("/live?google=failed&reason=cancelled", status_code=303))
+        if not session_id or len(state) > 256 or len(code) > 8192:
+            return _harden(RedirectResponse("/live?google=failed&reason=state", status_code=303))
         try:
             google.finish(session_id, state, code)
-        except GoogleAuthError:
-            return _harden(RedirectResponse("/live?google=failed", status_code=303))
+        except GoogleAuthError as exc:
+            return _harden(RedirectResponse(f"/live?google=failed&reason={exc.reason}", status_code=303))
         return _harden(RedirectResponse("/live?google=connected", status_code=303))
 
     @app.get("/api/config")

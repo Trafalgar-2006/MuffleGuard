@@ -513,7 +513,20 @@ async function main() {
   if (googleResult === "connected") googleStatus.textContent = !config.google_run_available
     ? "Google connected; configure a live model and call budget before using data."
     : "Google account connected; choose whether to use its data.";
-  if (googleResult === "failed") googleStatus.textContent = "Google sign-in failed. Check the OAuth setup and try again.";
+  if (googleResult === "failed") {
+    const reason = new URLSearchParams(location.search).get("reason");
+    googleStatus.textContent = ({
+      cancelled: "Google sign-in was cancelled. Choose Connect Gmail + Drive to try again.",
+      invalid_client: "Google rejected the OAuth client. Check that Railway's client ID and client secret belong to the same Web application client.",
+      invalid_grant: "Google rejected the one-time sign-in code. Start Connect Gmail + Drive again; if it repeats, verify the client secret and redirect URL.",
+      invalid_scope: "Google rejected the requested Gmail/Drive permissions. Check the saved Gmail read-only and Drive read-only scopes.",
+      redirect_uri_mismatch: "Google rejected the callback URL. The Google authorized redirect URI must exactly match Railway's GOOGLE_REDIRECT_URI.",
+      scope: "Google did not grant all requested read-only permissions. Check the Gmail and Drive scopes, then reconnect.",
+      state: "The sign-in session expired or was lost. Start again in the same browser and finish the sign-in promptly.",
+      token_exchange: "Google could not complete sign-in. Check the OAuth settings and try again.",
+      unauthorized_client: "Google does not allow this OAuth client to use the requested sign-in flow. Check its Web application type and consent setup.",
+    })[reason] || "Google sign-in failed. Check the OAuth setup and try again.";
+  }
   if (googleResult === "not-configured") googleStatus.textContent = "Google OAuth needs server setup before you can connect.";
   if (googleResult) history.replaceState(null, "", location.pathname);
   disconnectGoogle.addEventListener("click", async () => {

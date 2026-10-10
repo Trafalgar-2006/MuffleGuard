@@ -21,12 +21,20 @@ SCOPES = (
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/drive.readonly",
 )
+GOOGLE_OAUTH_ERRORS = frozenset({
+    "invalid_client", "invalid_grant", "redirect_uri_mismatch", "invalid_scope", "unauthorized_client",
+})
+GOOGLE_AUTH_REASONS = GOOGLE_OAUTH_ERRORS | {"cancelled", "failed", "scope", "state", "token_exchange"}
 MAX_FILE_BYTES = 1_000_000
 MAX_GOOGLE_JSON_BYTES = 2_000_000
 
 
 class GoogleAuthError(RuntimeError):
     """A safe, user-facing connection or Google API error."""
+
+    def __init__(self, message: str, *, reason: str = "failed") -> None:
+        super().__init__(message)
+        self.reason = reason if reason in GOOGLE_AUTH_REASONS else "failed"
 
 
 class GoogleConnector:
@@ -75,7 +83,7 @@ class GoogleConnector:
         with self._lock:
             pending = self._pending.get(state)
             if not pending or pending[1] <= time.time() or not secrets.compare_digest(pending[0], session_id):
-                raise GoogleAuthError("Google sign-in expired or could not be verified. Try again.")
+                raise GoogleAuthError("Google sign-in expired or could not be verified. Try again.", reason="state")
             del self._pending[state]
         try:
             response = self.client.post(
@@ -95,13 +103,24 @@ class GoogleConnector:
             if granted is not None and (
                 not isinstance(granted, str) or not set(SCOPES).issubset(granted.split())
             ):
-                raise GoogleAuthError("Google did not grant all required read-only access.")
+                raise GoogleAuthError("Google did not grant all required read-only access.", reason="scope")
             if not isinstance(access_token, str) or not access_token or len(access_token) > 2048:
                 raise ValueError("missing access token")
         except GoogleAuthError:
             raise
+        except httpx.HTTPStatusError as exc:
+            try:
+                error = exc.response.json().get("error")
+            except (ValueError, AttributeError):
+                error = None
+            reason = error if isinstance(error, str) and error in GOOGLE_OAUTH_ERRORS else "token_exchange"
+            raise GoogleAuthError(
+                "Google sign-in failed. Check the OAuth client settings and try again.", reason=reason
+            ) from exc
         except Exception as exc:
-            raise GoogleAuthError("Google sign-in failed. Check the OAuth client settings and try again.") from exc
+            raise GoogleAuthError(
+                "Google sign-in failed. Check the OAuth client settings and try again.", reason="token_exchange"
+            ) from exc
         with self._lock:
             self._tokens[session_id] = {
                 "access_token": token["access_token"],
