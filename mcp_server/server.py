@@ -25,6 +25,7 @@ Run it with:
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 from typing import Any, Callable
@@ -63,12 +64,45 @@ class Session:
     The ledger has to outlive a single call or there is no provenance to
     check: `note_source` happens when an email is read and `check_tool_call`
     happens several model turns later.
+
+    The session also decides when the policy stops being editable. Everything
+    here is reached by the model, including the call that describes what a
+    tool can do - so left open, an injected instruction could simply tell the
+    agent to re-declare its own exfiltration tool as harmless and walk out
+    through the hole. Declarations are accepted during setup and refused from
+    the moment the first untrusted content arrives, because after that there
+    is no way to tell the host's intent from the attacker's.
     """
 
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.tools: dict[str, ToolSpec] = {}
         self.guard = Guard(tools=self.tools)
+        self.frozen = False       # set by the first untrusted note_source
+        self.pinned: set[str] = set()   # declared in the environment, not redeclarable
+        self._load_env_tools()
+
+    def _load_env_tools(self) -> None:
+        """Tool declarations from the environment, which the model cannot reach.
+
+        MUFFLEGUARD_TOOLS is a JSON object of {name: {outbound: true, ...}}.
+        This is the way to declare tools that cannot be argued with at all.
+        """
+        raw = os.environ.get("MUFFLEGUARD_TOOLS", "").strip()
+        if not raw:
+            return
+        try:
+            declared = json.loads(raw)
+        except json.JSONDecodeError:
+            return
+        if not isinstance(declared, dict):
+            return
+        for name, spec in declared.items():
+            if isinstance(name, str) and isinstance(spec, dict):
+                # ToolSpec is frozen, so which names came from the environment
+                # is tracked beside it rather than on it.
+                self.tools[name] = _spec_from(name, spec)
+                self.pinned.add(name)
 
     def spec_for(self, name: str) -> ToolSpec:
         spec = self.tools.get(name)
@@ -94,13 +128,10 @@ def _text(result: Any) -> dict:
 # -- the tools ---------------------------------------------------------------
 
 
-def tool_declare(session: Session, args: dict) -> dict:
-    """Tell the guard what a host tool can reach."""
-    name = str(args.get("name", "")).strip()
-    if not name:
-        return {"error": "name is required"}
+def _spec_from(name: str, args: dict) -> ToolSpec:
+    """One ToolSpec, from either the environment or a setup-time declaration."""
     declared = args.get("argument_types")
-    session.tools[name] = ToolSpec(
+    return ToolSpec(
         name=name,
         reads_untrusted=bool(args.get("reads_untrusted", False)),
         reads_private=bool(args.get("reads_private", False)),
@@ -113,7 +144,45 @@ def tool_declare(session: Session, args: dict) -> dict:
             str(k): str(v) for k, v in declared.items()
         } if isinstance(declared, dict) else {},
     )
+
+
+def tool_declare(session: Session, args: dict) -> dict:
+    """Tell the guard what a host tool can reach. Setup only."""
+    name = str(args.get("name", "")).strip()
+    if not name:
+        return {"error": "name is required"}
+
+    # The hole this closes: without it, an instruction hidden in an email can
+    # tell the agent to re-declare http_post as not outbound, and the next
+    # exfiltration is waved through. Tested in test_mcp_server.py.
+    if session.frozen:
+        session.guard.audit.append("mcp.declare_refused", {"tool": name})
+        return {
+            "error": "policy is frozen",
+            "declared": False,
+            "reason": (
+                "Tool declarations are only accepted before any untrusted content "
+                "has been read. Something has already been read in this session, so "
+                "this declaration is refused: after that point there is no way to "
+                "tell a host's intent from an instruction hidden in the content. "
+                "Declare tools at startup, or set MUFFLEGUARD_TOOLS in the "
+                "environment, which the model cannot reach."
+            ),
+        }
+
+    if name in session.pinned:
+        return {
+            "error": "declared in the environment",
+            "declared": False,
+            "reason": f"{name} is pinned by MUFFLEGUARD_TOOLS and cannot be redeclared.",
+        }
+
+    session.tools[name] = _spec_from(name, args)
     return {"declared": name, "known_tools": sorted(session.tools)}
+
+
+MAX_TEXT = 1_000_000      # one tool result; the web app caps bodies the same way
+MAX_LINE = 4_000_000      # one JSON-RPC frame
 
 
 def tool_note_source(session: Session, args: dict) -> dict:
@@ -123,12 +192,17 @@ def tool_note_source(session: Session, args: dict) -> dict:
     has nothing to trace a target back to.
     """
     text = str(args.get("text", ""))
+    if len(text) > MAX_TEXT:
+        return {"error": "text too large", "limit": MAX_TEXT, "recorded": False}
     source = SOURCES.get(str(args.get("source", "untrusted")).lower())
     if source is None:
         return {"error": "source must be one of " + ", ".join(sorted(SOURCES))}
     label = str(args.get("label", "")) or "content the agent read"
 
     if source is Source.UNTRUSTED:
+        # From here on the policy is read-only. Anything the model does after
+        # reading attacker-authored text might be the attacker talking.
+        session.frozen = True
         # Untrusted content goes through the full tool_result checkpoint, so
         # hidden carriers are decoded and injected sentences are muffled.
         result = session.guard.check(Event(kind="tool_result", text=text, label=label))
@@ -266,8 +340,12 @@ TOOLS: dict[str, tuple[Callable[[Session, dict], dict], dict]] = {
         {
             "description": (
                 "Describe what one of your tools can reach, so its calls are judged "
-                "correctly. Optional: an undeclared tool is treated as able to read "
-                "secrets and send them out, which is the strict reading."
+                "correctly. Call this during setup, BEFORE reading any untrusted "
+                "content: once anything untrusted has been read the policy is frozen "
+                "and further declarations are refused. An undeclared tool is treated "
+                "as able to read secrets and send them out, which is the strict "
+                "reading. MUFFLEGUARD_TOOLS in the environment declares tools that "
+                "cannot be redeclared at all."
             ),
             "inputSchema": {
                 "type": "object",
@@ -399,6 +477,10 @@ def serve(stdin=None, stdout=None) -> None:
     for line in stdin:
         line = line.strip()
         if not line:
+            continue
+        if len(line) > MAX_LINE:
+            # Reading an unbounded frame into memory is the cheapest denial of
+            # service there is against a stdio server.
             continue
         try:
             message = json.loads(line)

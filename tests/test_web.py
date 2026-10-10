@@ -110,6 +110,9 @@ def test_security_headers_are_set(client):
     assert headers.get("x-content-type-options") == "nosniff"
     assert headers.get("x-frame-options") == "DENY"
     assert "referrer-policy" in headers
+    # The origin is HTTPS only, so the first request of a session should not
+    # be downgradeable.
+    assert "max-age=" in headers.get("strict-transport-security", "")
 
 
 def test_a_passcode_gates_every_route_when_set():

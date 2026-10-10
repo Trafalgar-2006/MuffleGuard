@@ -508,6 +508,10 @@ def _harden(response):
     response.headers["referrer-policy"] = "no-referrer"
     response.headers["permissions-policy"] = "geolocation=(), microphone=(), camera=()"
     response.headers["cache-control"] = "no-store"
+    # Railway terminates TLS and serves this origin over HTTPS only, so a
+    # browser should refuse to try plain HTTP again. Without it the very first
+    # request of a session is downgradeable.
+    response.headers["strict-transport-security"] = "max-age=31536000; includeSubDomains"
     return response
 
 
