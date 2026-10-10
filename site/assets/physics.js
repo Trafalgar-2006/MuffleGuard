@@ -19,8 +19,14 @@
    * dark mode that is the panel colour almost exactly, so the swarm and every
    * tool call in the sandbox were invisible. Canvas has no CSS variables, so
    * the values are read from the document and re-read when the theme flips. */
+  /* Two pages use this file and they name their colours differently: the
+   * marketing site has --mg-ink, the Attack Lab has --ink and flips it under
+   * prefers-color-scheme. Reading only the first name meant the swarm fell
+   * back to the light theme's ink and drew invisibly on the Lab's dark page. */
   function cssVar(name, fallback) {
-    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    var root = getComputedStyle(document.documentElement);
+    var v = root.getPropertyValue(name).trim();
+    if (!v) v = root.getPropertyValue(name.replace("--mg-", "--")).trim();
     return v || fallback;
   }
 
