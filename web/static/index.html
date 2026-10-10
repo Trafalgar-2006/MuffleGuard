@@ -47,6 +47,7 @@
         <button type="button" id="google-disconnect" hidden>Disconnect</button>
         <label class="toggle"><input type="checkbox" id="use-google" disabled><span class="toggle-track" aria-hidden="true"></span><span>Use connected Google data</span></label>
         <small id="google-sharing-note">Read-only access across Gmail and Drive; fetched content goes to the configured model provider. Use synthetic test data.</small>
+        <small id="google-live-note"><strong>Slower, and it can fail.</strong> Real mailbox data is never cached, so this path calls the live model for every step instead of using the recorded demo. Leave it off to compare the two guards quickly.</small>
       </fieldset>
       <fieldset class="toggles">
         <legend>Guard layers</legend>
