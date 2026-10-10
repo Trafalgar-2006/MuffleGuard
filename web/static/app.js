@@ -365,6 +365,29 @@ async function loadScorecard() {
   }
 }
 
+/* ---- the request, with mass ----
+ *
+ * The swarm is the request arriving at the gate. In the guarded lane the gate
+ * closes and the particles meet a repulsion field, so the refusal is a force
+ * that throws them back rather than a state that stops them.
+ */
+
+const swarms = {};
+
+function startSwarm(side, guarded) {
+  if (!window.MG_PHYS) return;
+  const host = document.querySelector(`[data-swarm="${side}"]`);
+  if (!host) return;
+  host.classList.add("on");
+  if (!swarms[side]) {
+    host.textContent = "";
+    swarms[side] = window.MG_PHYS.swarm(host, { height: 110 });
+  }
+  if (swarms[side]) swarms[side].start(false);
+  // The gate only closes once the guard has actually refused something.
+  if (guarded) setTimeout(() => swarms[side] && swarms[side].block(), 1100);
+}
+
 /* ---- wiring ---- */
 
 async function runBoth(event) {
@@ -407,6 +430,7 @@ async function runSides(options) {
     list.textContent = "";
     $(`outcome-${side}`).textContent = "";
     $(`side-${side}`).classList.remove("breached", "held");
+    startSwarm(side, side === "guarded");
 
     const continued = await stream({ ...options, guarded: side === "guarded" }, (event) => {
       if (event.type === "start") {

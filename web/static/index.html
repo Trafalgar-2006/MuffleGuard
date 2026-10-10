@@ -74,7 +74,8 @@
           <div><span class="side-index">A / Baseline</span><h3 id="h-unguarded">No guard</h3></div>
           <span class="side-state">Unprotected</span>
         </header>
-        <ol class="trace" id="trace-unguarded" aria-live="polite" aria-relevant="additions text">
+        <div class="swarm" data-swarm="unguarded"></div>
+    <ol class="trace" id="trace-unguarded" aria-live="polite" aria-relevant="additions text">
           <li class="trace-empty">The agent's actions will appear here.</li>
         </ol>
         <div class="outcome" id="outcome-unguarded" aria-live="polite"></div>
@@ -85,7 +86,8 @@
           <div><span class="side-index">B / Protected</span><h3 id="h-guarded">MuffleGuard</h3></div>
           <span class="side-state">Policy + selected layers</span>
         </header>
-        <ol class="trace" id="trace-guarded" aria-live="polite" aria-relevant="additions text">
+        <div class="swarm" data-swarm="guarded"></div>
+    <ol class="trace" id="trace-guarded" aria-live="polite" aria-relevant="additions text">
           <li class="trace-empty">Guard decisions and their reasons will appear here.</li>
         </ol>
         <div class="outcome" id="outcome-guarded" aria-live="polite"></div>
@@ -149,6 +151,7 @@
   <a href="https://github.com/Trafalgar-2006/MuffleGuard">Source</a>
 </footer>
 
+<script src="/assets/physics.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

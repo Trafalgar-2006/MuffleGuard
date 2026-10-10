@@ -489,3 +489,8 @@ footer {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+
+/* The request, with mass. One strip per lane, above its trace. */
+.swarm { height: 0; overflow: hidden; transition: height .3s ease; }
+.swarm.on { height: 110px; margin-bottom: 10px; border-bottom: 1px solid var(--line); }
