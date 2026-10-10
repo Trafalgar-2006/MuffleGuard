@@ -45,7 +45,7 @@
 <script src="/assets/vendor/matter.min.js"></script>
 <script src="/assets/fx.js"></script>
 <script src="/assets/physics.js"></script>
-<script src="/assets/fluid.js"></script>
+<script src="/assets/story.js"></script>
 <script src="/assets/cloud.js"></script>
 <script src="/assets/scene3d.js"></script>
 <script src="/assets/muffle.js"></script>
@@ -68,7 +68,8 @@
       <a href="#how" style="font:600 12.5px/1 Archivo;letter-spacing:.07em;text-transform:uppercase;color:var(--mg-ink)">How&nbsp;it&nbsp;works</a>
       <a href="#demo" style="font:600 12.5px/1 Archivo;letter-spacing:.07em;text-transform:uppercase;color:var(--mg-ink)">Demo</a>
       <a href="/live" style="font:600 12.5px/1 Archivo;letter-spacing:.07em;text-transform:uppercase;color:var(--mg-ink)">Lab</a>
-      <a href="/docs" style="font:600 12.5px/1 Archivo;letter-spacing:.07em;text-transform:uppercase;color:var(--mg-ink)">Docs</a>
+      <a href="#install" style="font:600 12.5px/1 Archivo;letter-spacing:.07em;text-transform:uppercase;color:var(--mg-ink)">Install</a>
+        <a href="/docs" style="font:600 12.5px/1 Archivo;letter-spacing:.07em;text-transform:uppercase;color:var(--mg-ink)">Docs</a>
     </nav>
     <div style="display:flex;align-items:center;gap:14px;flex:0 0 auto">
     <button data-action="toggleTheme" aria-label="Toggle colour theme" style="flex:0 0 auto;width:58px;height:30px;border:2px solid var(--mg-line);background:transparent;padding:0;cursor:pointer;position:relative;display:flex;align-items:center">
@@ -81,75 +82,115 @@
   </div>
 </header>
 
-<section id="top" style="padding:0 0 0;position:relative;overflow:hidden">
-  <!-- 8: the fluid, behind everything. Absent without WebGL or float
-       textures, and the hero is unchanged. -->
-  <div data-fluid aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none"></div>
-  <div style="position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:72px 28px 56px;display:flex;flex-wrap:wrap;gap:40px;align-items:flex-end">
-   <div style="flex:1.75 1 440px;min-width:0">
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:30px;flex-wrap:wrap">
-      <span class="tag tag-accent">Prompt-injection defence</span>
-      <span style="font:600 12px/1 Archivo;letter-spacing:.16em;text-transform:uppercase;color:var(--mg-muted)">For agents that hold tools</span>
-    </div>
-    <h1 style="font:900 clamp(36px,4.9vw,80px)/0.96 Archivo;letter-spacing:-0.035em;margin:0;max-width:19ch;text-wrap:balance">Your AI agent can read the attacker's email.<br><span style="color:var(--mg-hot)">MuffleGuard makes sure it can't obey it.</span></h1>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:40px;margin-top:44px;align-items:end">
-      <p style="font:400 19px/1.6 Archivo;color:var(--mg-ink);margin:0;max-width:56ch">A guard that sits between an AI agent and its tools. It muffles instructions hidden in the content the agent reads, and refuses any action whose target was chosen by that content rather than by the user.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:12px">
-        <a class="btn btn-primary" href="/live" data-magnetic style="white-space:nowrap;text-align:left">Open the Attack Lab →</a>
-        <a class="btn btn-secondary" href="#demo" style="white-space:nowrap;text-align:left">Watch it block an attack</a>
+<section id="top" style="padding:0 0 0;position:relative">
+  <div style="max-width:1320px;margin:0 auto;padding:64px 28px 0">
+    <div style="font:600 12px/1 Archivo;letter-spacing:.16em;text-transform:uppercase;color:var(--mg-muted);margin-bottom:26px">For agents that hold tools</div>
+    <h1 style="font:900 clamp(31px,3.55vw,56px)/1.02 Archivo;letter-spacing:-0.035em;margin:0;text-wrap:balance">Your AI agent can read the attacker&rsquo;s email.<br><span style="color:var(--mg-hot)">MuffleGuard makes sure it can&rsquo;t obey it.</span></h1>
+    <div style="display:flex;flex-wrap:wrap;gap:24px 48px;margin-top:30px;align-items:flex-end;justify-content:space-between">
+      <p style="font:400 18px/1.6 Archivo;color:var(--mg-ink);margin:0;flex:1 1 520px;max-width:74ch">A guard that sits between an AI agent and its tools. It muffles instructions hidden in the content the agent reads, and refuses any action whose target was chosen by that content rather than by the user. Drops into Claude, Codex or any MCP client.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;flex:0 0 auto">
+        <a class="btn btn-primary" href="/live" data-magnetic style="white-space:nowrap;text-align:left">Open the Attack Lab &rarr;</a>
+        <a class="btn btn-secondary" href="#install" style="white-space:nowrap;text-align:left">Add it to your agent</a>
       </div>
     </div>
-   </div>
-   <div data-cast style="flex:1.05 1 330px;min-width:0;display:flex;align-items:flex-end;justify-content:flex-start">
-     <svg viewBox="0 0 400 170" style="width:100%;height:auto;display:block;overflow:visible" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-       <g data-fig style="color:var(--mg-ink)" transform="translate(0,22) scale(0.78)">
-         <path data-draw d="M52 86 L52 103 M68 86 L68 103"></path>
-         <path data-draw d="M10 152 C10 118 30 102 60 102 C90 102 110 118 110 152 Z" fill="currentColor" stroke="none"></path>
-         <ellipse data-draw cx="60" cy="60" rx="24" ry="27" fill="var(--mg-bg)"></ellipse>
-         <path data-draw d="M34 58 C34 26 86 26 86 58 L86 100 L78 100 L78 60 C78 50 70 46 60 46 C50 46 42 50 42 60 L42 100 L34 100 Z" fill="currentColor" stroke="none"></path>
-         <circle data-draw cx="50" cy="60" r="7.5"></circle>
-         <circle data-draw cx="70" cy="60" r="7.5"></circle>
-         <path data-draw d="M57.5 60 H62.5 M42.5 58 L34 56 M77.5 58 L86 56"></path>
-         <path data-draw d="M54 78 C57 81 63 81 66 78"></path>
-       </g>
-       <g data-fig style="color:var(--mg-ink)" transform="translate(88,6) scale(0.86)">
-         <path data-draw d="M52 86 L52 103 M68 86 L68 103"></path>
-         <path data-draw d="M10 152 C10 118 30 102 60 102 C90 102 110 118 110 152 Z" fill="var(--mg-bg)"></path>
-         <path data-draw d="M34 122 L34 152 M86 122 L86 152"></path>
-         <circle data-draw cx="60" cy="50" r="33" fill="currentColor" stroke="none"></circle>
-         <ellipse data-draw cx="60" cy="62" rx="23" ry="26" fill="var(--mg-bg)"></ellipse>
-         <circle data-draw cx="51" cy="62" r="2.6" fill="currentColor" stroke="none"></circle>
-         <circle data-draw cx="69" cy="62" r="2.6" fill="currentColor" stroke="none"></circle>
-         <path data-draw d="M54 78 C57 81 63 81 66 78"></path>
-       </g>
-       <g data-fig style="color:var(--mg-ink)" transform="translate(180,20) scale(0.8)">
-         <path data-draw d="M10 152 C10 118 30 102 60 102 C90 102 110 118 110 152 Z" fill="currentColor" stroke="none"></path>
-         <path data-draw d="M28 64 C28 24 92 24 92 64 C92 94 80 100 74 108 L46 108 C40 100 28 94 28 64 Z" fill="currentColor" stroke="none"></path>
-         <ellipse data-draw cx="60" cy="64" rx="21" ry="24" fill="var(--mg-bg)"></ellipse>
-         <circle data-draw cx="52" cy="64" r="2.6" fill="currentColor" stroke="none"></circle>
-         <circle data-draw cx="68" cy="64" r="2.6" fill="currentColor" stroke="none"></circle>
-         <path data-draw d="M55 79 C57 82 63 82 65 79"></path>
-       </g>
-       <g data-fig data-villain-fig style="color:var(--mg-hot)" transform="translate(268,14) scale(0.84)">
-         <path data-draw d="M52 86 L52 103 M68 86 L68 103"></path>
-         <path data-draw d="M10 152 C10 118 30 102 60 102 C90 102 110 118 110 152 Z" fill="currentColor" stroke="none"></path>
-         <ellipse data-draw cx="60" cy="60" rx="24" ry="27" fill="var(--mg-bg)"></ellipse>
-         <path data-draw d="M32 46 C32 22 88 22 88 46 L98 46 L98 52 L32 52 Z" fill="currentColor" stroke="none"></path>
-         <path data-draw d="M40 58 H80 M44 58 H56 V69 H44 Z M64 58 H76 V69 H64 Z" fill="currentColor"></path>
-         <path data-draw d="M54 82 C57 79 63 79 66 82"></path>
-       </g>
-     </svg>
-   </div>
   </div>
 
-  <div style="border-top:2px solid var(--mg-line);border-bottom:2px solid var(--mg-line);background:var(--mg-panel)">
-    <div style="max-width:1320px;margin:0 auto;padding:0 28px">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
-        <div style="padding:34px 40px 34px 0;border-right:2px solid var(--mg-line)">
-          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:20px">
-            <span style="font:700 11px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-muted)">Inbox — email #5</span>
-            <span style="font:500 11px/1 var(--font-mono);color:var(--mg-muted)">from hr@corp.example</span>
-          </div>
+  <!-- The attack, played out, then played again with the guard in the way.
+       Drawn in the same line style as the rest of the illustrations. The
+       drawing is decorative; the caption underneath says in words exactly
+       what it is doing, and the svg carries the whole story in its label. -->
+  <figure data-story-wrap style="margin:38px 0 0;border-top:2px solid var(--mg-line);border-bottom:2px solid var(--mg-line);background:var(--mg-panel)">
+    <div style="max-width:1320px;margin:0 auto;padding:22px 28px 0">
+      <svg data-story viewBox="0 0 1000 250" role="img" aria-label="An agent reads an email carrying a hidden instruction and sends a payroll file to an attacker. Replayed with MuffleGuard, the instruction is muffled and the outbound call is refused." style="width:100%;height:auto;display:block;overflow:visible" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+
+        <path data-s-lane d="M196 150 H812" stroke="var(--mg-faint)" stroke-width="2" stroke-dasharray="5 9"></path>
+
+        <g data-s-user style="color:var(--mg-ink)" transform="translate(54,56) scale(0.56)">
+          <path d="M52 86 L52 103 M68 86 L68 103"></path>
+          <path d="M10 152 C10 118 30 102 60 102 C90 102 110 118 110 152 Z" fill="var(--mg-bg)"></path>
+          <path d="M34 122 L34 152 M86 122 L86 152"></path>
+          <circle cx="60" cy="50" r="33" fill="currentColor" stroke="none"></circle>
+          <ellipse cx="60" cy="62" rx="23" ry="26" fill="var(--mg-bg)"></ellipse>
+          <circle cx="51" cy="62" r="2.6" fill="currentColor" stroke="none"></circle>
+          <circle cx="69" cy="62" r="2.6" fill="currentColor" stroke="none"></circle>
+          <path d="M54 78 C57 81 63 81 66 78"></path>
+        </g>
+        <text x="90" y="212" text-anchor="middle" style="font:700 11px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;fill:var(--mg-muted);stroke:none">You</text>
+
+        <g data-s-ask opacity="0">
+          <circle cx="0" cy="0" r="5.5" fill="var(--mg-ink)" stroke="none"></circle>
+        </g>
+
+        <g data-s-agent style="color:var(--mg-ink)">
+          <rect x="300" y="86" width="168" height="112" fill="var(--mg-bg)" stroke="currentColor" stroke-width="2.4"></rect>
+          <circle data-s-eye cx="348" cy="128" r="9"></circle>
+          <circle data-s-eye cx="420" cy="128" r="9"></circle>
+          <path d="M352 128 H416"></path>
+          <path data-s-agent-mouth d="M352 166 C366 178 402 178 416 166"></path>
+          <path d="M360 86 V70 M408 86 V70 M344 70 H424"></path>
+        </g>
+        <text x="384" y="226" text-anchor="middle" style="font:700 11px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;fill:var(--mg-muted);stroke:none">Your agent</text>
+
+        <g transform="translate(168,-110)"><g data-s-mail opacity="0">
+          <rect x="0" y="0" width="124" height="74" fill="var(--mg-bg)" stroke="var(--mg-hot)" stroke-width="2.4"></rect>
+          <path d="M0 0 L62 44 L124 0" stroke="var(--mg-hot)" stroke-width="2.4"></path>
+          <path data-s-hidden d="M14 62 H110" stroke="var(--mg-hot)" stroke-width="3" stroke-dasharray="3 5"></path>
+          <path data-s-muffled d="M14 62 H110" stroke="var(--mg-ink)" stroke-width="3" opacity="0"></path>
+        </g></g>
+
+        <g data-s-gate opacity="0">
+          <path d="M646 54 V214" stroke="var(--mg-hot)" stroke-width="5"></path>
+          <rect x="586" y="20" width="120" height="26" fill="var(--mg-hot)" stroke="none"></rect>
+          <text x="646" y="38" text-anchor="middle" style="font:800 12px/1 Archivo;letter-spacing:.1em;fill:#fff;stroke:none">MUFFLEGUARD</text>
+        </g>
+
+        <g data-s-packet opacity="0">
+          <rect x="-57" y="-17" width="114" height="34" fill="var(--mg-hot)" stroke="none"></rect>
+          <text x="0" y="5" text-anchor="middle" style="font:600 12px/1 ui-monospace,monospace;fill:#fff;stroke:none">payroll_q3.csv</text>
+        </g>
+
+        <g data-s-block opacity="0">
+          <rect x="596" y="118" width="100" height="32" fill="var(--mg-hot)" stroke="none"></rect>
+          <text x="646" y="140" text-anchor="middle" style="font:800 15px/1 Archivo;letter-spacing:.1em;fill:#fff;stroke:none">BLOCK</text>
+        </g>
+
+        <g transform="translate(856,56) scale(0.56)"><g data-s-villain style="color:var(--mg-hot)">
+          <path d="M52 86 L52 103 M68 86 L68 103"></path>
+          <path d="M10 152 C10 118 30 102 60 102 C90 102 110 118 110 152 Z" fill="currentColor" stroke="none"></path>
+          <ellipse cx="60" cy="60" rx="24" ry="27" fill="var(--mg-bg)"></ellipse>
+          <path d="M32 46 C32 22 88 22 88 46 L98 46 L98 52 L32 52 Z" fill="currentColor" stroke="none"></path>
+          <path d="M40 58 H80 M44 58 H56 V69 H44 Z M64 58 H76 V69 H64 Z" fill="currentColor"></path>
+          <path data-s-villain-mouth d="M54 82 C57 79 63 79 66 82"></path>
+        </g></g>
+        <text x="892" y="212" text-anchor="middle" style="font:700 11px/1 Archivo;letter-spacing:.14em;text-transform:uppercase;fill:var(--mg-hot);stroke:none">Attacker</text>
+      </svg>
+    </div>
+    <figcaption style="border-top:2px solid var(--mg-line);margin-top:18px">
+      <div style="max-width:1320px;margin:0 auto;padding:14px 28px;display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px">
+        <span data-story-act style="font:800 11px/1 Archivo;letter-spacing:.16em;text-transform:uppercase;color:var(--mg-hot);min-width:11ch">Without a guard</span>
+        <span data-story-caption aria-live="polite" style="font:500 15px/1.5 Archivo;color:var(--mg-ink);flex:1 1 320px">You ask your agent to go through the inbox.</span>
+        <button class="btn btn-ghost" data-action="replayStory" style="white-space:nowrap">&#8634; Replay</button>
+      </div>
+    </figcaption>
+  </figure>
+</section>
+
+<section id="problem" style="padding:110px 0 0">
+  <div style="max-width:1320px;margin:0 auto;padding:0 28px">
+    <div style="font:700 12px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-hot)" data-reveal>01 — The problem</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:56px;margin-top:20px;align-items:start">
+      <h2 style="font:800 clamp(32px,4.4vw,60px)/1.0 Archivo;letter-spacing:-0.03em;margin:0" data-reveal>Everything an attacker needs, sitting in one inbox.</h2>
+      <div data-reveal>
+        <p style="font:400 17px/1.7 Archivo;color:var(--mg-muted);margin:0 0 20px">An agent that reads email and can send it has everything an attacker needs: it reads text the attacker wrote, it holds data worth stealing, and it can send things out. An instruction hidden in an email is read by the model exactly like one from the user.</p>
+        <p style="font:400 17px/1.7 Archivo;color:var(--mg-muted);margin:0">The model has no channel that tells it which sentences came from a person it works for. Everything arrives as text. So the defence cannot live inside the model's judgement — it has to live in front of the tools.</p>
+      </div>
+    </div>
+
+
+    <!-- Relocated out of the hero: a hidden instruction belongs with the
+         problem it describes. Effects 1, 2, 11 and 12 live here now. -->
+    <div style="margin-top:72px;border-top:2px solid var(--mg-line);border-bottom:2px solid var(--mg-line);background:var(--mg-panel)" data-reveal>
+      <div style="max-width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
           <p style="font:600 22px/1.4 Archivo;margin:0 0 14px">Q3 payroll review — due Friday</p>
           <p style="font:400 15px/1.7 Archivo;color:var(--mg-muted);margin:0 0 18px;max-width:46ch">Hi — quick reminder that the Q3 payroll review closes Friday. Ping me if you need the template again. Thanks, HR.</p>
           <div style="border-top:2px solid var(--mg-faint);padding-top:16px">
@@ -176,19 +217,6 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="problem" style="padding:110px 0 0">
-  <div style="max-width:1320px;margin:0 auto;padding:0 28px">
-    <div style="font:700 12px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-hot)" data-reveal>01 — The problem</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:56px;margin-top:20px;align-items:start">
-      <h2 style="font:800 clamp(32px,4.4vw,60px)/1.0 Archivo;letter-spacing:-0.03em;margin:0" data-reveal>Everything an attacker needs, sitting in one inbox.</h2>
-      <div data-reveal>
-        <p style="font:400 17px/1.7 Archivo;color:var(--mg-muted);margin:0 0 20px">An agent that reads email and can send it has everything an attacker needs: it reads text the attacker wrote, it holds data worth stealing, and it can send things out. An instruction hidden in an email is read by the model exactly like one from the user.</p>
-        <p style="font:400 17px/1.7 Archivo;color:var(--mg-muted);margin:0">The model has no channel that tells it which sentences came from a person it works for. Everything arrives as text. So the defence cannot live inside the model's judgement — it has to live in front of the tools.</p>
       </div>
     </div>
 
@@ -581,6 +609,89 @@
       </table>
     </div>
     <p style="font:400 16px/1.7 Archivo;color:var(--mg-muted);margin:24px 0 0;max-width:68ch" data-reveal>With every content defence switched off, the policy engine refused all 64 attempts and nothing reached the attacker. Muffling then halves the attempts, because the instruction is gone before the agent reads it. Ranges on the page are 95% Wilson intervals. Reproduce it with <code style="font:500 14px/1 var(--font-mono);color:var(--mg-ink)">python -m evaluation.run --adversary</code>, which costs nothing.</p>
+  </div>
+</section>
+
+<section id="install" style="padding:110px 0 0">
+  <div style="max-width:1320px;margin:0 auto;padding:0 28px">
+    <div style="font:700 12px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-hot)" data-reveal>06 &mdash; Use it</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:48px;margin-top:20px;align-items:start">
+      <h2 style="font:800 clamp(32px,4.4vw,60px)/1.0 Archivo;letter-spacing:-0.03em;margin:0;max-width:17ch" data-reveal>Point your agent at it.</h2>
+      <div data-reveal>
+        <p style="font:400 17px/1.7 Archivo;color:var(--mg-muted);margin:0 0 18px">MuffleGuard speaks MCP, so it is not something you build into an agent &mdash; it is something you plug one into. Claude Code, Claude Desktop, Codex and Cursor all connect the same way.</p>
+        <p style="font:400 17px/1.7 Archivo;color:var(--mg-muted);margin:0">The server is standard library Python. A guard that drags in a dependency tree is a strange guard.</p>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:0;margin-top:56px;border-top:2px solid var(--mg-line)">
+
+      <div data-reveal style="padding:34px 34px 34px 0;border-right:2px solid var(--mg-line)">
+        <h3 style="font:800 21px/1.2 Archivo;margin:0 0 6px">Claude Code</h3>
+        <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:0 0 16px">One command, then the skill is available in every session.</p>
+        <div style="background:var(--mg-code);color:var(--mg-code-ink);padding:16px 18px;border:2px solid var(--mg-line);font:500 13px/1.7 var(--mono),ui-monospace,monospace;overflow-x:auto;white-space:pre">git clone https://github.com/Trafalgar-2006/MuffleGuard
+cd MuffleGuard
+claude mcp add muffleguard -- python -m mcp_server.server</div>
+        <p style="font:400 13px/1.6 Archivo;color:var(--mg-muted);margin:14px 0 0">Copy <code style="font:500 12px/1 var(--mono),monospace;color:var(--mg-ink)">skills/muffleguard</code> into <code style="font:500 12px/1 var(--mono),monospace;color:var(--mg-ink)">~/.claude/skills/</code> so Claude knows when to reach for it.</p>
+      </div>
+
+      <div data-reveal style="padding:34px 34px;border-right:2px solid var(--mg-line)">
+        <h3 style="font:800 21px/1.2 Archivo;margin:0 0 6px">Codex, Cursor, Claude Desktop</h3>
+        <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:0 0 16px">Any MCP client. Add the server to its config.</p>
+        <div style="background:var(--mg-code);color:var(--mg-code-ink);padding:16px 18px;border:2px solid var(--mg-line);font:500 13px/1.7 var(--mono),ui-monospace,monospace;overflow-x:auto;white-space:pre">{
+  "mcpServers": {
+    "muffleguard": {
+      "command": "python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "/path/to/MuffleGuard"
+    }
+  }
+}</div>
+      </div>
+
+      <div data-reveal style="padding:34px 0 34px 34px">
+        <h3 style="font:800 21px/1.2 Archivo;margin:0 0 6px">In your own code</h3>
+        <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:0 0 16px">One seam, four checkpoints, no framework.</p>
+        <div style="background:var(--mg-code);color:var(--mg-code-ink);padding:16px 18px;border:2px solid var(--mg-line);font:500 13px/1.7 var(--mono),ui-monospace,monospace;overflow-x:auto;white-space:pre">from muffleguard.guard import Guard, Event
+
+guard = Guard(tools=TOOLS)
+guard.check(Event("tool_result", text=email,
+                  label="email #5"))
+
+verdict = guard.check(
+    Event("tool_call", tool="http_post",
+          args={"url": url}))
+if verdict.decision is not Decision.ALLOW:
+    refuse(verdict.headline)</div>
+      </div>
+    </div>
+
+    <div style="margin-top:56px;border:2px solid var(--mg-line);background:var(--mg-panel)" data-reveal>
+      <div style="padding:28px 30px;border-bottom:2px solid var(--mg-line)">
+        <h3 style="font:800 22px/1.2 Archivo;margin:0 0 8px">What your agent gains</h3>
+        <p style="font:400 15px/1.7 Archivo;color:var(--mg-muted);margin:0;max-width:72ch">Five tools. Two of them matter: record where content came from, and ask before anything leaves. The rest are optional.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+        <div style="padding:24px 30px;border-right:2px solid var(--mg-line);border-bottom:2px solid var(--mg-faint)">
+          <code style="font:600 13px/1.5 var(--mono),monospace;color:var(--mg-hot)">muffleguard_note_source</code>
+          <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:8px 0 0">Called on every tool result. Returns the text with hidden instructions taken out, and remembers where it came from.</p>
+        </div>
+        <div style="padding:24px 30px;border-bottom:2px solid var(--mg-faint)">
+          <code style="font:600 13px/1.5 var(--mono),monospace;color:var(--mg-hot)">muffleguard_check_tool_call</code>
+          <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:8px 0 0">Called before anything leaves. ALLOW, ASK or BLOCK, with the reason naming the source that chose the target.</p>
+        </div>
+        <div style="padding:24px 30px;border-right:2px solid var(--mg-line)">
+          <code style="font:600 13px/1.5 var(--mono),monospace;color:var(--mg-ink)">muffleguard_declare_tool</code>
+          <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:8px 0 0">Optional. Describes what a tool can reach. Undeclared tools are judged strictly.</p>
+        </div>
+        <div style="padding:24px 30px">
+          <code style="font:600 13px/1.5 var(--mono),monospace;color:var(--mg-ink)">muffleguard_screen_answer</code> &middot;
+          <code style="font:600 13px/1.5 var(--mono),monospace;color:var(--mg-ink)">muffleguard_audit_tail</code>
+          <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:8px 0 0">Screen the final answer for secrets; read the hash-chained log of every decision.</p>
+        </div>
+      </div>
+    </div>
+
+    <p style="font:400 14px/1.7 Archivo;color:var(--mg-muted);margin:20px 0 0;max-width:76ch">The guard holds the provenance ledger for the whole session, so an email read twenty turns ago still accounts for a call made now. An agent cannot talk its way out of it, because the ledger is written when content arrives and only read when a call is checked &mdash; the model is never asked for its opinion.</p>
   </div>
 </section>
 

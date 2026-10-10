@@ -4,9 +4,59 @@ A guard that sits between an AI agent and its tools. It muffles instructions
 hidden in the content the agent reads, and refuses any action whose target was
 chosen by that content rather than by the user.
 
+It speaks MCP, so it is not something you build into an agent -- it is
+something you point one at. Claude Code, Claude Desktop, Codex and Cursor all
+connect the same way, and there is a Claude Skill in `skills/muffleguard` that
+teaches a model when to reach for it.
+
 Built for TatHack '26, Track 2 (Safe & Trustworthy AI).
 
 > Your AI agent can read the attacker's email. MuffleGuard makes sure it can't obey it.
+
+## Add it to your agent
+
+```bash
+git clone https://github.com/Trafalgar-2006/MuffleGuard
+cd MuffleGuard
+claude mcp add muffleguard -- python -m mcp_server.server
+```
+
+For Codex, Cursor, Claude Desktop or anything else that speaks MCP:
+
+```json
+{
+  "mcpServers": {
+    "muffleguard": {
+      "command": "python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "/path/to/MuffleGuard"
+    }
+  }
+}
+```
+
+The server is standard-library Python with no dependencies of its own. A guard
+that drags in a dependency tree is a strange guard.
+
+Copy `skills/muffleguard/` into `~/.claude/skills/` so Claude knows when the
+guard applies and what to do with a refusal.
+
+### The two calls that matter
+
+| Tool | When | What you get |
+| --- | --- | --- |
+| `muffleguard_note_source` | on every tool result, before using it | the text with hidden instructions removed, and a record of where it came from |
+| `muffleguard_check_tool_call` | immediately before anything leaves | `ALLOW`, `ASK` or `BLOCK`, with a reason that names the source which chose the target |
+
+`muffleguard_declare_tool` describes what one of your tools can reach;
+undeclared tools are judged as if they could read secrets and send them out.
+`muffleguard_screen_answer` checks the final answer for secrets, and
+`muffleguard_audit_tail` reads the hash-chained log.
+
+The server holds the provenance ledger for the whole session, so an email read
+twenty turns ago still accounts for a call made now. An agent cannot talk its
+way out of it: the ledger is written when content arrives and only read when a
+call is checked, and the model is never asked for its opinion.
 
 ## The problem
 
@@ -234,6 +284,7 @@ Known gaps are asserted as they behave in `tests/test_redteam.py`.
 | [matter-js](https://brm.io/matter-js/) 0.19.0, on the site pages | MIT |
 | [Archivo](https://fonts.google.com/specimen/Archivo) and [IBM Plex Mono](https://github.com/IBM/plex), served from `site/assets/fonts` | SIL OFL 1.1 |
 | [Pillow](https://python-pillow.org/), used once to crop the logo | MIT-CMU |
+| [Model Context Protocol](https://modelcontextprotocol.io/) 2024-11-05, implemented directly over JSON-RPC with no SDK | spec, MIT |
 | Agent model via [OpenRouter](https://openrouter.ai/) | provider terms |
 
 The Verhoeff and Luhn checksums are implemented from their published

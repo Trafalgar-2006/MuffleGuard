@@ -65,7 +65,12 @@ class ToolSpec:
         allowed = set(self.argument_types)
         errors = []
         missing = set(self.required_args) - keys
-        extra = keys - allowed
+        # No declared schema means no basis for calling a field unknown. The
+        # check used to run anyway, so a tool declared without argument_types
+        # rejected every call it was given - which reads as strictness and is
+        # actually a tool that cannot be used, with the schema complaint
+        # hiding whatever the policy engine would have said.
+        extra = (keys - allowed) if allowed else set()
         if missing:
             errors.append("missing fields: " + ", ".join(sorted(missing)))
         if extra:

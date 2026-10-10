@@ -374,16 +374,6 @@
       if (box) onSeen(sandboxHost, box.start, 0.3);
     }
 
-    var fluidHost = $("[data-fluid]");
-    if (fluidHost && window.MG_FLUID) {
-      var fl = window.MG_FLUID.mount(fluidHost);
-      if (fl) {
-        window.MG_FLUID_SINK = fl.setCutoff;
-        window.MG_FLUID_FIELD = fl;    // so the field can be inspected
-        fl.start();
-      }
-    }
-
     var floorHost = $("[data-noise-floor]");
     if (floorHost && window.MG_FX) {
       var wf = window.MG_FX.waveform(floorHost);
@@ -798,6 +788,22 @@
     }, 0, "100% 0px 100% 0px");
   }
 
+  /* The hero story: the attack, then the attack with the guard in the way.
+   * Started when it is scrolled to rather than on load, so the first act is
+   * not already over by the time anyone looks at it. */
+  function story3() {
+    var wrap = $("[data-story-wrap]");
+    if (!wrap) return;
+    var s = window.MG_STORY && window.MG_STORY.mount(wrap, {
+      wrap: wrap,
+      caption: $("[data-story-caption]"),
+      act: $("[data-story-act]"),
+    });
+    if (!s || s.reduced) return;
+    storyScene = s;
+    onSeen(wrap, function () { s.play(); }, 0.25);
+  }
+
   function scenes() {
     var cloudHost = $("[data-cloud]");
     if (cloudHost && window.MG_CLOUD) window.MG_CLOUD_FIELD = window.MG_CLOUD.mount(cloudHost);
@@ -852,9 +858,12 @@
     });
   }
 
+  var storyScene = null;
+
   var ACTIONS = {
     toggleTheme: function () { setTheme(theme === "dark" ? "light" : "dark"); },
     replayHero: function () { if (replayHero) replayHero(); },
+    replayStory: function () { if (storyScene) storyScene.replay(); },
     runUndefended: function () { if (window.__mgRun) window.__mgRun("undefended"); },
     runDefended: function () { if (window.__mgRun) window.__mgRun("defended"); },
     toggleCarrier: function (el) {
@@ -939,6 +948,7 @@
       scrollEffects();
       spy();
       bars();
+      story3();
       scenes();
       document.documentElement.setAttribute("data-motion", gsap ? "on" : "off");
     });
