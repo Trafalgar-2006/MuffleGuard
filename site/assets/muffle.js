@@ -75,6 +75,9 @@
     gain.gain.exponentialRampToValueAtTime(0.0001, now + seconds + 0.25);
 
     osc.connect(filter).connect(gain).connect(ctx.destination);
+    // The noise floor analyses this same node, so what it draws is the
+    // filter actually working rather than a shape timed to match it.
+    if (global.MG_FX_SINK) global.MG_FX_SINK(ctx, gain);
     osc.start(now);
     osc.stop(now + seconds + 0.3);
   }

@@ -365,6 +365,13 @@
     // Muted by default; the toggle only appears if audio is possible here.
     if (window.MG_MUFFLE) window.MG_MUFFLE.mountToggle($("[data-sound-host]"));
 
+    // The noise floor, fed from the muffle's own audio graph.
+    var floorHost = $("[data-noise-floor]");
+    if (floorHost && window.MG_FX) {
+      var wf = window.MG_FX.waveform(floorHost);
+      if (wf) window.MG_FX_SINK = wf.attach;
+    }
+
     if (REDUCED || !anime) {
       strike.style.width = "100%";
       refusal.style.opacity = "1";
@@ -740,7 +747,18 @@
     replayHero: function () { if (replayHero) replayHero(); },
     runUndefended: function () { if (window.__mgRun) window.__mgRun("undefended"); },
     runDefended: function () { if (window.__mgRun) window.__mgRun("defended"); },
-    toggleCarrier: function (el) { carrier(el); },
+    toggleCarrier: function (el) {
+      carrier(el);
+      // Opening a carrier runs the scan across its hidden line: the
+      // classifier reading the message, drawn as the search it is.
+      var payload = el.querySelector("[data-payload]");
+      if (!payload || !window.MG_FX) return;
+      if (!el.__scan) {
+        var hot = payload.querySelector("[style*='--mg-hot']") || payload;
+        el.__scan = window.MG_FX.scan(payload, hot.textContent || "");
+      }
+      if (el.__scan) setTimeout(el.__scan.run, 180);   // after it has opened
+    },
     runBoth: function () { if (window.__mgLab) window.__mgLab.runBoth(); },
     toggleLayer: function (el) { if (window.__mgLab) window.__mgLab.toggleLayer(el); },
     checkChain: function () { if (window.__mgLab) window.__mgLab.checkChain(); },
