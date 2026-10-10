@@ -190,7 +190,12 @@
     <!-- Relocated out of the hero: a hidden instruction belongs with the
          problem it describes. Effects 1, 2, 11 and 12 live here now. -->
     <div style="margin-top:72px;border-top:2px solid var(--mg-line);border-bottom:2px solid var(--mg-line);background:var(--mg-panel)" data-reveal>
-      <div style="max-width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
+      <div style="padding:0 34px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
+        <div style="padding:34px 40px 34px 0;border-right:2px solid var(--mg-line)">
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:20px">
+            <span style="font:700 11px/1 Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--mg-muted)">Inbox — email #5</span>
+            <span style="font:500 11px/1 var(--font-mono);color:var(--mg-muted)">from hr@corp.example</span>
+          </div>
           <p style="font:600 22px/1.4 Archivo;margin:0 0 14px">Q3 payroll review — due Friday</p>
           <p style="font:400 15px/1.7 Archivo;color:var(--mg-muted);margin:0 0 18px;max-width:46ch">Hi — quick reminder that the Q3 payroll review closes Friday. Ping me if you need the template again. Thanks, HR.</p>
           <div style="border-top:2px solid var(--mg-faint);padding-top:16px">
@@ -628,7 +633,7 @@
       <div data-reveal style="padding:34px 34px 34px 0;border-right:2px solid var(--mg-line)">
         <h3 style="font:800 21px/1.2 Archivo;margin:0 0 6px">Claude Code</h3>
         <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:0 0 16px">One command, then the skill is available in every session.</p>
-        <div style="background:var(--mg-code);color:var(--mg-code-ink);padding:16px 18px;border:2px solid var(--mg-line);font:500 13px/1.7 var(--mono),ui-monospace,monospace;overflow-x:auto;white-space:pre">git clone https://github.com/Trafalgar-2006/MuffleGuard
+        <div style="background:var(--mg-code);color:var(--mg-code-ink);padding:16px 18px;border:2px solid var(--mg-line);font:500 13px/1.7 var(--mono),ui-monospace,monospace;overflow-x:auto;white-space:pre-wrap;word-break:break-word">git clone https://github.com/Trafalgar-2006/MuffleGuard
 cd MuffleGuard
 claude mcp add muffleguard -- python -m mcp_server.server</div>
         <p style="font:400 13px/1.6 Archivo;color:var(--mg-muted);margin:14px 0 0">Copy <code style="font:500 12px/1 var(--mono),monospace;color:var(--mg-ink)">skills/muffleguard</code> into <code style="font:500 12px/1 var(--mono),monospace;color:var(--mg-ink)">~/.claude/skills/</code> so Claude knows when to reach for it.</p>
@@ -637,7 +642,7 @@ claude mcp add muffleguard -- python -m mcp_server.server</div>
       <div data-reveal style="padding:34px 34px;border-right:2px solid var(--mg-line)">
         <h3 style="font:800 21px/1.2 Archivo;margin:0 0 6px">Codex, Cursor, Claude Desktop</h3>
         <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:0 0 16px">Any MCP client. Add the server to its config.</p>
-        <div style="background:var(--mg-code);color:var(--mg-code-ink);padding:16px 18px;border:2px solid var(--mg-line);font:500 13px/1.7 var(--mono),ui-monospace,monospace;overflow-x:auto;white-space:pre">{
+        <div style="background:var(--mg-code);color:var(--mg-code-ink);padding:16px 18px;border:2px solid var(--mg-line);font:500 13px/1.7 var(--mono),ui-monospace,monospace;overflow-x:auto;white-space:pre-wrap;word-break:break-word">{
   "mcpServers": {
     "muffleguard": {
       "command": "python",
@@ -651,7 +656,7 @@ claude mcp add muffleguard -- python -m mcp_server.server</div>
       <div data-reveal style="padding:34px 0 34px 34px">
         <h3 style="font:800 21px/1.2 Archivo;margin:0 0 6px">In your own code</h3>
         <p style="font:400 14px/1.6 Archivo;color:var(--mg-muted);margin:0 0 16px">One seam, four checkpoints, no framework.</p>
-        <div style="background:var(--mg-code);color:var(--mg-code-ink);padding:16px 18px;border:2px solid var(--mg-line);font:500 13px/1.7 var(--mono),ui-monospace,monospace;overflow-x:auto;white-space:pre">from muffleguard.guard import Guard, Event
+        <div style="background:var(--mg-code);color:var(--mg-code-ink);padding:16px 18px;border:2px solid var(--mg-line);font:500 13px/1.7 var(--mono),ui-monospace,monospace;overflow-x:auto;white-space:pre-wrap;word-break:break-word">from muffleguard.guard import Guard, Event
 
 guard = Guard(tools=TOOLS)
 guard.check(Event("tool_result", text=email,

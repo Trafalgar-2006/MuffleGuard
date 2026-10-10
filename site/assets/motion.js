@@ -198,19 +198,41 @@
     els.forEach(function (el) { gsap.set(el, { opacity: 0, y: 26 }); });
     els.forEach(function (el) {
       onSeen(el, function () {
+        if (el.__shown) return;
+        el.__shown = true;
         gsap.to(el, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out", overwrite: true });
       }, 0, "0px 0px -5% 0px");
     });
-    // Anything already on screen when the libraries finish loading must not be
-    // left hidden waiting for a scroll that never comes.
-    later(function () {
-      els.forEach(function (el) {
-        var r = el.getBoundingClientRect();
-        if (r.top < innerHeight && r.bottom > 0) {
-          gsap.to(el, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out", overwrite: true });
-        }
+    function show(el, fast) {
+      if (el.__shown) return;
+      el.__shown = true;
+      gsap.to(el, {
+        opacity: 1, y: 0, duration: fast ? 0.3 : 0.6, ease: "power3.out", overwrite: true,
       });
-    }, 900);
+    }
+
+    // An IntersectionObserver only fires for an element that is actually in
+    // the viewport during a frame. Clicking a nav link jumps straight past
+    // whole sections, which never render in an intersecting state, so those
+    // elements stayed at opacity 0 for the rest of the visit - permanently
+    // invisible to anyone who navigated by the menu rather than by scrolling.
+    // This sweep catches anything at or above the fold, however it got there.
+    var pending = 0;
+    function sweep() {
+      pending = 0;
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        if (el.__shown) continue;
+        if (el.getBoundingClientRect().top < innerHeight) show(el, true);
+      }
+    }
+    addEventListener("scroll", function () {
+      if (!pending) pending = requestAnimationFrame(sweep);
+    }, { passive: true });
+
+    // And anything already on screen when the libraries finish loading must
+    // not be left waiting for a scroll that never comes.
+    later(sweep, 900);
   }
 
   /* ------------------------- 2. the illustrations draw themselves on */

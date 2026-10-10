@@ -243,8 +243,9 @@
       gl.uniform1i(gl.getUniformLocation(draw, "home"), 1);
       gl.uniform2f(gl.getUniformLocation(draw, "size"), canvas.width, canvas.height);
       gl.uniform1i(gl.getUniformLocation(draw, "cols"), cols);
-      gl.uniform3f(gl.getUniformLocation(draw, "ink"), colours.ink[0], colours.ink[1], colours.ink[2]);
-      gl.uniform3f(gl.getUniformLocation(draw, "hot"), colours.hot[0], colours.hot[1], colours.hot[2]);
+      var ink = colours.ink(), hot = colours.hot();
+      gl.uniform3f(gl.getUniformLocation(draw, "ink"), ink[0], ink[1], ink[2]);
+      gl.uniform3f(gl.getUniformLocation(draw, "hot"), hot[0], hot[1], hot[2]);
       gl.drawArrays(gl.POINTS, 0, pts.length);
     }
 
@@ -260,7 +261,7 @@
 
   var WGSL = [
     "struct P { pos: vec2f, vel: vec2f, home: vec2f, kind: f32, seed: f32 };",
-    "struct Cfg { grab: f32, dt: f32, w: f32, h: f32 };",
+    "struct Cfg { grab: f32, dt: f32, w: f32, h: f32, ink: vec4f, hot: vec4f };",
     "@group(0) @binding(0) var<storage, read_write> ps: array<P>;",
     "@group(0) @binding(1) var<uniform> cfg: Cfg;",
     "",
@@ -282,7 +283,7 @@
 
   var WGSL_DRAW = [
     "struct P { pos: vec2f, vel: vec2f, home: vec2f, kind: f32, seed: f32 };",
-    "struct Cfg { grab: f32, dt: f32, w: f32, h: f32 };",
+    "struct Cfg { grab: f32, dt: f32, w: f32, h: f32, ink: vec4f, hot: vec4f };",
     "@group(0) @binding(0) var<storage, read> ps: array<P>;",
     "@group(0) @binding(1) var<uniform> cfg: Cfg;",
     "struct Out { @builtin(position) pos: vec4f, @location(0) kind: f32 };",
@@ -305,14 +306,17 @@
     "  return o;",
     "}",
     "",
+    "// The palette arrives in the uniform block rather than being written",
+    "// into the shader: --mg-ink flips from near-black to near-white in dark",
+    "// mode, and a baked colour meant 192 invisible points on one theme.",
     "@fragment fn fs(@location(0) kind: f32) -> @location(0) vec4f {",
-    "  if (kind < 0.5) { return vec4f(0.925, 0.188, 0.075, 0.95); }",
-    "  if (kind < 1.5) { return vec4f(0.125, 0.118, 0.114, 0.85); }",
-    "  return vec4f(0.125, 0.118, 0.114, 0.30);",
+    "  if (kind < 0.5) { return vec4f(cfg.hot.rgb, 0.95); }",
+    "  if (kind < 1.5) { return vec4f(cfg.ink.rgb, 0.85); }",
+    "  return vec4f(cfg.ink.rgb, 0.30);",
     "}",
   ].join("\n");
 
-  async function webgpu(canvas, pts) {
+  async function webgpu(canvas, pts, colours) {
     if (!global.navigator || !navigator.gpu) return null;
     var adapter = await navigator.gpu.requestAdapter();
     if (!adapter) return null;
@@ -340,7 +344,7 @@
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(buf, 0, data);
-    var cfg = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    var cfg = device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
     var compute = device.createComputePipeline({
       layout: "auto",
@@ -373,7 +377,12 @@
     });
 
     function step(grab, dt) {
-      device.queue.writeBuffer(cfg, 0, new Float32Array([grab, dt, canvas.width, canvas.height]));
+      var ink = colours.ink(), hot = colours.hot();
+      device.queue.writeBuffer(cfg, 0, new Float32Array([
+        grab, dt, canvas.width, canvas.height,
+        ink[0], ink[1], ink[2], 1,
+        hot[0], hot[1], hot[2], 1,
+      ]));
       var enc = device.createCommandEncoder();
       var cp = enc.beginComputePass();
       cp.setPipeline(compute);
@@ -450,7 +459,10 @@
       }
     }
 
-    var colours = { ink: cssColour("--mg-ink", "#201e1d"), hot: cssColour("--mg-hot", "#ec3013") };
+    var colours = {
+      ink: function () { return cssColour("--mg-ink", "#201e1d"); },
+      hot: function () { return cssColour("--mg-hot", "#ec3013"); },
+    };
 
     // WebGPU first, because that is the point of the exercise, and WebGL2
     // whenever there is no adapter - which, today, is most browsers.
@@ -461,7 +473,7 @@
       canvas: canvas,
     };
 
-    webgpu(canvas, pts).then(run, function () { return null; }).then(function () {
+    webgpu(canvas, pts, colours).then(run, function () { return null; }).then(function () {
       if (!engine) run(webgl2(canvas, pts, colours));
     });
 

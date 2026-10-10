@@ -238,7 +238,9 @@
       } else {
         ctx.moveTo(0, mid); ctx.lineTo(w, mid);   // resting: nothing to hear
       }
-      ctx.strokeStyle = "rgba(236,48,19,.85)";
+      // Reads the theme: --mg-hot is a brighter red on the dark page.
+      ctx.strokeStyle = getComputedStyle(document.documentElement)
+        .getPropertyValue("--mg-hot").trim() || "#ec3013";
       ctx.lineWidth = 1.5;
       ctx.stroke();
       requestAnimationFrame(frame);

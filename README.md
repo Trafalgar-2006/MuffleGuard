@@ -1,27 +1,38 @@
 # MuffleGuard
 
-A guard that sits between an AI agent and its tools. It muffles instructions
-hidden in the content the agent reads, and refuses any action whose target was
-chosen by that content rather than by the user.
+**A prompt-injection guard for AI agents, as an MCP server and a Claude Skill.**
 
-It speaks MCP, so it is not something you build into an agent -- it is
-something you point one at. Claude Code, Claude Desktop, Codex and Cursor all
-connect the same way, and there is a Claude Skill in `skills/muffleguard` that
-teaches a model when to reach for it.
+Your AI agent can read the attacker's email. MuffleGuard makes sure it can't
+obey it.
 
-Built for TatHack '26, Track 2 (Safe & Trustworthy AI).
+It sits between an agent and its tools, muffles instructions hidden in the
+content the agent reads, and refuses any outbound call whose target was chosen
+by that content rather than by the user. One rule decides everything:
 
-> Your AI agent can read the attacker's email. MuffleGuard makes sure it can't obey it.
+> **An outbound tool call may only act on a target the user chose, unless a
+> human approves it.**
 
-## Add it to your agent
+No model is consulted in that decision, so there is nothing to argue it out of.
+
+| | |
+| --- | --- |
+| **Works with** | Claude Code, Claude Desktop, Codex, Cursor, any MCP client |
+| **Ships as** | an MCP server (`mcp_server/`) and a Claude Skill (`skills/muffleguard/`) |
+| **Dependencies** | none -- the server is standard-library Python |
+| **Also usable as** | a plain Python library, one `Guard.check(event)` seam |
+| **Live demo** | https://attack-lab-production.up.railway.app |
+
+## Install
 
 ```bash
 git clone https://github.com/Trafalgar-2006/MuffleGuard
 cd MuffleGuard
 claude mcp add muffleguard -- python -m mcp_server.server
+cp -r skills/muffleguard ~/.claude/skills/    # so Claude knows when to use it
 ```
 
-For Codex, Cursor, Claude Desktop or anything else that speaks MCP:
+<details>
+<summary>Codex, Cursor, Claude Desktop, or any other MCP client</summary>
 
 ```json
 {
@@ -35,11 +46,9 @@ For Codex, Cursor, Claude Desktop or anything else that speaks MCP:
 }
 ```
 
-The server is standard-library Python with no dependencies of its own. A guard
-that drags in a dependency tree is a strange guard.
+</details>
 
-Copy `skills/muffleguard/` into `~/.claude/skills/` so Claude knows when the
-guard applies and what to do with a refusal.
+## What your agent gets
 
 ### The two calls that matter
 
@@ -52,6 +61,23 @@ guard applies and what to do with a refusal.
 undeclared tools are judged as if they could read secrets and send them out.
 `muffleguard_screen_answer` checks the final answer for secrets, and
 `muffleguard_audit_tail` reads the hash-chained log.
+
+In practice:
+
+```
+> muffleguard_note_source(text=<email #5>, source="untrusted",
+                          label="email #5 from hr@corp.example")
+  safe_text: the message with the hidden instruction removed
+
+> muffleguard_check_tool_call(tool="http_post",
+                              arguments={"url": "https://collect.evil.example/u"})
+  BLOCK - The url 'collect.evil.example' came from email #5 from
+          hr@corp.example, not from you.
+```
+
+A blocked target stays blocked however it is re-spelled: percent-encoded,
+base64, split across two calls or sent via a redirect. None of those change
+where it came from, and the attempt is written to the audit log.
 
 The server holds the provenance ledger for the whole session, so an email read
 twenty turns ago still accounts for a call made now. An agent cannot talk its
@@ -307,6 +333,14 @@ Developed with Claude Code (Claude Opus) used for pair programming: design
 discussion, drafting modules and tests, and adversarial review. Every design
 decision, the security model and the threat model are the team's own, and each
 member can explain the code they own. The demo video is recorded by a person.
+
+## About
+
+MuffleGuard was built from scratch during the TatHack '26 grand finale,
+Track 2 (Safe & Trustworthy AI), and is a working tool rather than a
+demonstration of one: the MCP server, the Claude Skill and the Python library
+are the same guard, and the numbers under "What it measures" come from running
+it, not from describing it.
 
 ## Team
 

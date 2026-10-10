@@ -15,6 +15,34 @@
 
   var REDUCED = global.matchMedia && global.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /* Both of these drew in rgba(32,30,29), which is the light theme's ink. In
+   * dark mode that is the panel colour almost exactly, so the swarm and every
+   * tool call in the sandbox were invisible. Canvas has no CSS variables, so
+   * the values are read from the document and re-read when the theme flips. */
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+
+  function rgba(hex, alpha) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+    if (!m) return "rgba(32,30,29," + alpha + ")";
+    return "rgba(" + parseInt(m[1], 16) + "," + parseInt(m[2], 16) + "," +
+      parseInt(m[3], 16) + "," + alpha + ")";
+  }
+
+  function ink(alpha) { return rgba(cssVar("--mg-ink", "#201e1d"), alpha); }
+  function hot(alpha) { return rgba(cssVar("--mg-hot", "#ec3013"), alpha); }
+
+  /* Call back whenever the theme toggle fires, so a running canvas repaints
+   * rather than waiting for a reload. */
+  function onTheme(fn) {
+    if (!global.MutationObserver) return;
+    new MutationObserver(fn).observe(document.documentElement, {
+      attributes: true, attributeFilter: ["data-theme"],
+    });
+  }
+
   /* ---------------------------------------------- #3 the request, as mass
    *
    * A few hundred particles drift toward the tool call. The gate carries a
@@ -59,7 +87,7 @@
       ctx.clearRect(0, 0, w, h);
 
       // the gate
-      ctx.strokeStyle = blocked ? "rgba(236,48,19,.95)" : "rgba(32,30,29,.30)";
+      ctx.strokeStyle = blocked ? hot(0.95) : ink(0.3);
       ctx.lineWidth = blocked ? 3 : 2;
       ctx.beginPath(); ctx.moveTo(gateX, 12); ctx.lineTo(gateX, h - 12); ctx.stroke();
 
@@ -85,10 +113,10 @@
         if (!blocked && p.x > gateX) p.done = true;
         if (p.x < -w * 0.6) { p.x = -Math.random() * 40; p.vx = 0.7; }
 
-        var hot = blocked && p.x > gateX - 90;
+        var near = blocked && p.x > gateX - 90;
         ctx.fillStyle = p.done
-          ? "rgba(32,30,29,.30)"
-          : hot ? "rgba(236,48,19,.85)" : "rgba(32,30,29,.62)";
+          ? ink(0.3)
+          : near ? hot(0.85) : ink(0.62);
         ctx.fillRect(p.x, p.y, 2.2, 2.2);
       }
       raf = requestAnimationFrame(step);
@@ -132,7 +160,7 @@
 
     var wall = function (x, y, ww, hh) {
       return M.Bodies.rectangle(x, y, ww, hh, {
-        isStatic: true, render: { fillStyle: "rgba(32,30,29,.22)" },
+        isStatic: true, render: { fillStyle: ink(0.22) },
       });
     };
     var floorY = h - 10;
@@ -161,9 +189,10 @@
           friction: 0.55,
           density: c.danger ? 0.0075 : 0.0012,
           render: {
-            fillStyle: c.danger ? "#ec3013" : "#201e1d",
+            fillStyle: c.danger ? cssVar("--mg-hot", "#ec3013") : cssVar("--mg-ink", "#201e1d"),
             strokeStyle: "transparent",
           },
+          plugin: { danger: c.danger },
           label: c.label,
         }
       );
@@ -196,7 +225,9 @@
         c.save();
         c.translate(b.position.x, b.position.y);
         c.rotate(b.angle);
-        c.fillStyle = "#fff";
+        c.fillStyle = (b.plugin && b.plugin.danger)
+          ? "#fff"
+          : cssVar("--mg-bg", "#f3f2f2");
         c.fillText(b.label, 0, 0);
         c.restore();
       });
@@ -205,6 +236,15 @@
 
     var runner = M.Runner.create();
     var started = false;
+
+    onTheme(function () {
+      var inkNow = cssVar("--mg-ink", "#201e1d");
+      var hotNow = cssVar("--mg-hot", "#ec3013");
+      M.Composite.allBodies(engine.world).forEach(function (b) {
+        if (b.isStatic) b.render.fillStyle = ink(0.22);
+        else b.render.fillStyle = (b.plugin && b.plugin.danger) ? hotNow : inkNow;
+      });
+    });
 
     return {
       start: function () {
